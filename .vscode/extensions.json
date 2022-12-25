@@ -1,0 +1,16 @@
+{
+  "recommendations": [
+    "codezombiech.gitignore",
+    "denoland.vscode-deno",
+    "eamodio.gitlens",
+    "editorconfig.editorconfig",
+    "esbenp.prettier-vscode",
+    "gruntfuggly.todo-tree",
+    "meganrogge.template-string-converter",
+    "mikestead.dotenv",
+    "mkaufman.htmlhint",
+    "ms-ceintl.vscode-language-pack-zh-hans",
+    "streetsidesoftware.code-spell-checker",
+    "vscode-icons-team.vscode-icons"
+  ]
+}

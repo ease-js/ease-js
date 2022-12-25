@@ -1,0 +1,47 @@
+{
+  "[html][xml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": false,
+    "editor.wordWrap": "on"
+  },
+  "[json][jsonc][markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[javascript][javascriptreact][typescript][typescriptreact]": {
+    "editor.defaultFormatter": "denoland.vscode-deno",
+    "editor.formatOnSave": true
+  },
+  "cSpell.diagnosticLevel": "Hint",
+  "css.validate": false,
+  "deno.codeLens.test": true,
+  "deno.enable": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": true
+  },
+  "editor.rulers": [80],
+  "emmet.triggerExpansionOnTab": true,
+  "eslint.enable": false,
+  "htmlhint.enable": true,
+  "json.format.enable": false,
+  "search.exclude": {
+    ".vscode/**": true,
+    "*.code-workspace": true
+  },
+  "search.useIgnoreFiles": true,
+  "todo-tree.general.tags": ["TODO:", "FIXME:"],
+  "todo-tree.highlights.defaultHighlight": { "gutterIcon": true },
+  "todo-tree.highlights.customHighlight": {
+    "TODO:": {
+      "foreground": "#fff",
+      "background": "#ffbd2a",
+      "iconColour": "#ffbd2a"
+    },
+    "FIXME:": {
+      "foreground": "#fff",
+      "background": "#f06292",
+      "icon": "flame",
+      "iconColour": "#f06292"
+    }
+  }
+}

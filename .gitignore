@@ -1,0 +1,10 @@
+# local
+.idea/
+*.local
+*.local.*
+*.log
+*.log.*
+*.pid
+*.pid.*
+.*history
+.DS_Store
