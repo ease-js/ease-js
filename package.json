@@ -1,0 +1,8 @@
+{
+  "name": "ease-js",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@ease-js/cli": "workspace:*"
+  }
+}

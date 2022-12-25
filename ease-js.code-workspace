@@ -1,0 +1,57 @@
+{
+  "folders": [{ "name": "ease-js", "path": "." }],
+  "settings": {
+    "[html][xml]": {
+      "editor.wordWrap": "on"
+    },
+    "[json][jsonc][markdown]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.formatOnSave": true
+    },
+    "[javascript][javascriptreact][typescript][typescriptreact]": {
+      "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+      "editor.formatOnSave": true
+    },
+    "cSpell.diagnosticLevel": "Hint",
+    "css.validate": false,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": true
+    },
+    "editor.rulers": [100],
+    "emmet.triggerExpansionOnTab": true,
+    "eslint.alwaysShowStatus": true,
+    "eslint.format.enable": true,
+    "eslint.lintTask.enable": true,
+    "eslint.options": {
+      "overrideConfig": { "rules": { "no-debugger": "off" } }
+    },
+    "htmlhint.enable": true,
+    "javascript.format.enable": false,
+    "javascript.validate.enable": false,
+    "json.format.enable": false,
+    "search.exclude": {
+      "**/pnpm-lock.yaml": true,
+      ".vscode/**": true,
+      "*.code-workspace": true
+    },
+    "search.useIgnoreFiles": true,
+    "todo-tree.general.tags": ["TODO:", "FIXME:"],
+    "todo-tree.highlights.defaultHighlight": { "gutterIcon": true },
+    "todo-tree.highlights.customHighlight": {
+      "TODO:": {
+        "foreground": "#fff",
+        "background": "#ffbd2a",
+        "iconColour": "#ffbd2a"
+      },
+      "FIXME:": {
+        "foreground": "#fff",
+        "background": "#f06292",
+        "icon": "flame",
+        "iconColour": "#f06292"
+      }
+    },
+    "typescript.format.enable": false,
+    "typescript.validate.enable": true,
+    "typescript.tsdk": "ease-js/node_modules/typescript/lib"
+  }
+}

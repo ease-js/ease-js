@@ -1,0 +1,19 @@
+# production
+*.bundle.js
+
+# local
+.idea/
+.pnpm-store/
+coverage/
+node_modules/
+*.local
+*.local.*
+*.log
+*.log.*
+*.pid
+*.pid.*
+*.tsbuildinfo
+.*cache
+.*history
+.DS_Store
+.npm

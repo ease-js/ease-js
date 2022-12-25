@@ -1,0 +1,12 @@
+{
+  "name": "@ease-js/bundler",
+  "version": "0.0.0-unreleased",
+  "homepage": "https://github.com/ease-js/ease-js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ease-js/ease-js.git",
+    "directory": "bundler"
+  },
+  "sideEffects": false,
+  "type": "module"
+}
