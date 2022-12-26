@@ -1,0 +1,2 @@
+import*as e from"node:fs";var t={d:(e,a)=>{for(var o in a)t.o(a,o)&&!t.o(e,o)&&Object.defineProperty(e,o,{enumerable:!0,get:a[o]})},o:(e,t)=>Object.prototype.hasOwnProperty.call(e,t)},a={};t.d(a,{default:()=>o.default});const o=(r={default:()=>e.default},d={},t.d(d,r),d);var r,d,f=a.default;export{f as default};
+//# sourceMappingURL=graceful-fs.js.map

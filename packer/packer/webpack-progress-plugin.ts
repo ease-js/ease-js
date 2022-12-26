@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import cliTruncate from 'cli-truncate';
 import signale from 'lazy-signale';
 import prettyTime from 'pretty-time';
-import webpack from 'webpack';
+import webpack from '@ease-js/deps/webpack';
 
 export class ProgressPlugin extends webpack.ProgressPlugin {
   public static registry = new Set<ProgressPlugin>();
@@ -12,7 +12,11 @@ export class ProgressPlugin extends webpack.ProgressPlugin {
 
   public readonly name: string = 'ProgressPlugin';
 
-  readonly #signal = new signale.Signale({ scope: 'easepack' });
+  readonly #name: string | undefined;
+
+  readonly #signal: signale.Signale;
+
+  #costTime?: [number, number];
 
   #failed: boolean = false;
 
@@ -24,7 +28,7 @@ export class ProgressPlugin extends webpack.ProgressPlugin {
 
   #startTime?: [number, number];
 
-  public constructor() {
+  public constructor(name?: string) {
     super({
       activeModules: false,
       dependencies: true,
@@ -36,6 +40,9 @@ export class ProgressPlugin extends webpack.ProgressPlugin {
       profile: false,
       handler: (progress, message) => this.#update(progress * 100, message),
     });
+
+    this.#name = name;
+    this.#signal = new signale.Signale({ scope: this.#name });
   }
 
   public apply(compiler: webpack.Compiler): void {
@@ -48,8 +55,8 @@ export class ProgressPlugin extends webpack.ProgressPlugin {
 
     compiler.hooks.done.tap(this.name, stat => {
       this.#failed = stat.hasErrors();
+      this.#costTime = this.#startTime && process.hrtime(this.#startTime);
       this.#render();
-      ProgressPlugin.registry.delete(this);
     });
   }
 
@@ -57,12 +64,24 @@ export class ProgressPlugin extends webpack.ProgressPlugin {
     if (process.stdout.isTTY) {
       const lines: string[] = [];
       const { columns = 70 } = process.stdout;
+      const nameColumns = [...ProgressPlugin.registry].reduce((max, that) => {
+        return Math.min(Math.max(max, that.#name?.length || 0), 15);
+      }, 0);
 
       for (const that of ProgressPlugin.registry) {
         const parts: string[] = [];
 
+        if (nameColumns > 0) {
+          if (that.#name) {
+            const name = cliTruncate(that.#name, nameColumns, { position: 'middle' });
+            parts.push(chalk.gray(`[${name}]`.padEnd(nameColumns + 2)));
+          } else {
+            parts.push(' '.repeat(nameColumns + 2));
+          }
+        }
+
         if (that.#percentage === 100) {
-          const costTime = that.#startTime ? renderCostTime(that.#startTime) : null;
+          const costTime = that.#costTime ? prettyTime(that.#costTime, undefined, 2) : '?';
 
           parts.push(that.#failed ? chalk.red('✖ failed') : chalk.green('✔ done'));
           if (costTime) parts.push(`in ${costTime}`);
@@ -86,8 +105,8 @@ export class ProgressPlugin extends webpack.ProgressPlugin {
 
       const previousTTYOutput = ProgressPlugin.ttyOutput;
       ProgressPlugin.ttyOutput = lines
-        .map(output => cliTruncate(output, columns, { position: 'end' }))
-        .join('\n');
+        .map(output => `${cliTruncate(output, columns, { position: 'end' })}\n`)
+        .join('');
 
       if (ProgressPlugin.ttyOutput !== previousTTYOutput) {
         const previousLineCount = previousTTYOutput.split('\n').length;
@@ -96,7 +115,7 @@ export class ProgressPlugin extends webpack.ProgressPlugin {
     } else {
       for (const that of ProgressPlugin.registry) {
         if (that.#percentage === 100) {
-          const costTime = that.#startTime ? renderCostTime(that.#startTime) : '?';
+          const costTime = that.#costTime ? prettyTime(that.#costTime, undefined, 2) : '?';
           if (that.#failed) that.#signal.error(`compile failed in ${costTime}`);
           else that.#signal.success(`compile done in ${costTime}`);
         } else if (that.#percentage - that.#percentageNoTTY > 10) {
@@ -123,8 +142,4 @@ export class ProgressPlugin extends webpack.ProgressPlugin {
 
     this.#render();
   }
-}
-
-function renderCostTime(startTime: [number, number]): string {
-  return prettyTime(process.hrtime(startTime), undefined, 2);
 }

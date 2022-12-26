@@ -1,4 +1,4 @@
-import z from 'zod';
+import z from '@ease-js/deps/zod';
 
 export const PackModeSchema = z
   .enum(['development', 'production'])

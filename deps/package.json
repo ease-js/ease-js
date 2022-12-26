@@ -1,0 +1,44 @@
+{
+  "name": "@ease-js/deps",
+  "version": "0.0.0-unreleased",
+  "homepage": "https://github.com/ease-js/ease-js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ease-js/ease-js.git",
+    "directory": "deps"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./types/*.d.ts",
+      "default": "./js/*.js"
+    }
+  },
+  "dependencies": {
+    "@babel/types": "7.20.7",
+    "@types/babel__core": "7.1.20",
+    "@types/enhanced-resolve": "5.0.0",
+    "@types/tapable": "2.2.2",
+    "jest-worker": "29.3.1",
+    "terser-webpack-plugin": "5.3.6",
+    "webpack": "5.75.0",
+    "zod": "3.20.2"
+  },
+  "devDependencies": {
+    "@babel/core": "7.20.7",
+    "@babel/types": "7.20.7",
+    "@jridgewell/trace-mapping": "0.3.17",
+    "@types/node": "18.11.17",
+    "@types/serialize-javascript": "5.0.2",
+    "babel-loader": "9.1.0",
+    "enhanced-resolve": "5.12.0",
+    "jest-worker": "29.3.1",
+    "schema-utils": "4.0.0",
+    "serialize-javascript": "6.0.0",
+    "tapable": "2.2.1",
+    "terser": "5.16.1",
+    "webpack": "5.75.0",
+    "zod": "3.20.2"
+  }
+}

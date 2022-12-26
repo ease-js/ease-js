@@ -1,17 +1,19 @@
+import BabelPresetEnv from '@babel/preset-env';
+import BabelPresetReact from '@babel/preset-react';
+import BabelPresetTypeScript from '@babel/preset-typescript';
+import TerserPlugin from '@ease-js/deps/terser-webpack-plugin';
+import webpack from '@ease-js/deps/webpack';
+import path from 'node:path';
 import { defaultPackEntryPoints } from '../config/defaults.js';
 import type { PackConfig, PackEntryPointResolvedConfig } from '../config/schema.js';
 import { PackConfigSchema } from '../config/schema.js';
-import webpack from 'webpack';
-import path from 'node:path';
 import {
   BuiltinModulesMap,
   SourceFileExtListWithoutDot,
   SourceFileExtMapWithoutDot,
 } from '../config/constants.js';
 import { ProgressPlugin } from './webpack-progress-plugin.js';
-import BabelPresetEnv from '@babel/preset-env';
-import BabelPresetReact from '@babel/preset-react';
-import BabelPresetTypeScript from '@babel/preset-typescript';
+import { createRequire } from 'module';
 
 export async function pack(config: PackConfig): Promise<void> {
   const {
@@ -22,6 +24,7 @@ export async function pack(config: PackConfig): Promise<void> {
     ...extendable
   } = await PackConfigSchema.parseAsync(config);
 
+  const require = createRequire(import.meta.url);
   const uniqueKey = `u${Math.random().toString(16).slice(2, 12).padStart(10, '0')}`;
 
   const compilerConfigs = Object.keys(entry).map((name): webpack.Configuration => {
@@ -42,7 +45,7 @@ export async function pack(config: PackConfig): Promise<void> {
       target = 'web',
     } = entryConfig;
 
-    const builtinModules: readonly (RegExp | string)[] = BuiltinModulesMap[target] || [];
+    const builtinModules: readonly RegExp[] = BuiltinModulesMap[target] || [];
     const scriptFileExts = [SourceFileExtMapWithoutDot.ts, SourceFileExtMapWithoutDot.js].flat(1);
     const externalModulePatterns: readonly (string | RegExp)[] = [...builtinModules, ...externals];
 
@@ -89,18 +92,23 @@ export async function pack(config: PackConfig): Promise<void> {
       infrastructureLogging: { level: 'info' },
       mode,
       module: {
+        parser: {
+          asset: { dataUrlCondition: { maxSize: 4 * 1024 } },
+        },
         rules: [
           {
             oneOf: [
               {
                 test: RegExp(`\\.(${scriptFileExts.join('|')})$`),
+                type: 'javascript/esm',
+                parser: { createRequire: false, importMeta: false },
                 exclude: /node_modules/,
                 resolve: {
                   extensionAlias: { '.js': scriptFileExts.map(ext => `.${ext}`) },
                   fullySpecified: true,
                 },
                 use: {
-                  loader: 'babel-loader', // TODO:
+                  loader: require.resolve('@ease-js/deps/babel-loader'),
                   options: {
                     babelrc: false,
                     compact: mode === 'development' ? false : 'auto',
@@ -113,6 +121,7 @@ export async function pack(config: PackConfig): Promise<void> {
                       ],
                       [BabelPresetTypeScript, {}],
                     ],
+                    targets: ['last 2 versions', 'not dead'],
                   },
                 },
               },
@@ -121,7 +130,7 @@ export async function pack(config: PackConfig): Promise<void> {
                 oneOf: [
                   { type: 'asset/inline', resourceQuery: /inline/ },
                   { type: 'asset/resource', resourceQuery: /url/ },
-                  { type: 'asset', parser: { dataUrlCondition: { maxSize: 4 * 1024 } } },
+                  { type: 'asset' },
                 ],
               },
               {
@@ -133,8 +142,14 @@ export async function pack(config: PackConfig): Promise<void> {
         ],
       },
       name,
+      node: false,
       optimization: {
         minimize: mode === 'production',
+        minimizer:
+          mode === 'production'
+            ? [new TerserPlugin({ terserOptions: { compress: { passes: 2 } } })]
+            : [],
+        nodeEnv: target === 'node' ? false : mode,
         runtimeChunk: false,
         splitChunks: false,
       },
@@ -158,11 +173,15 @@ export async function pack(config: PackConfig): Promise<void> {
         path: path.resolve(root, outputDirectory),
         publicPath: new URL(base, `${uniqueKey}:///`).href.replace(RegExp(`^${uniqueKey}://`), ''),
       },
-      plugins: [new ProgressPlugin(), new webpack.DefinePlugin(define)],
+      plugins: [new ProgressPlugin(name), new webpack.DefinePlugin(define)],
       resolve: {
         alias: internalModuleAlias,
         conditionNames: [mode, target, 'import', 'module'],
         mainFields: ['module', 'main'],
+      },
+      resolveLoader: {
+        modules: [],
+        preferAbsolute: true,
       },
       stats: 'none',
       target: 'es2022',
@@ -171,7 +190,12 @@ export async function pack(config: PackConfig): Promise<void> {
   });
 
   await new Promise<void>((resolve, reject) => {
-    webpack(compilerConfigs, error => {
+    webpack(compilerConfigs, (error, stats) => {
+      if (stats?.hasErrors()) {
+        const message = stats.toString({ colors: process.stdout.isTTY, preset: 'errors-only' });
+        process.stdout.write(message);
+      }
+
       if (error) reject(error);
       else resolve();
     });

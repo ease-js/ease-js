@@ -1,9 +1,9 @@
 import module from 'node:module';
 
 export const BuiltinModulesMap: {
-  readonly [key: string]: readonly (RegExp | string)[] | undefined;
+  readonly [key: string]: readonly RegExp[] | undefined;
 } = {
-  node: [/^node:/, ...module.builtinModules],
+  node: [/^node:/, RegExp(`^(${module.builtinModules.join('|')})$`)],
 };
 
 export type SourceFileType = 'css' | 'html' | 'js' | 'json' | 'ts';

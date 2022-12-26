@@ -36,6 +36,7 @@
     "javascript.validate.enable": false,
     "json.format.enable": false,
     "search.exclude": {
+      "**/js/**": true,
       "**/pnpm-lock.yaml": true,
       ".vscode/**": true,
       "*.code-workspace": true
