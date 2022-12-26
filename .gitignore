@@ -1,10 +1,9 @@
 # production
-*.bundle.js
+dist/
 
 # local
 .idea/
 .pnpm-store/
-coverage/
 node_modules/
 *.local
 *.local.*

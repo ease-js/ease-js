@@ -1,6 +1,7 @@
 {
   "folders": [
     { "name": "cli", "path": "./cli" },
+    { "name": "deps", "path": "./deps" },
     { "name": "packer", "path": "./packer" },
     { "name": "ease-js", "path": "." }
   ],
