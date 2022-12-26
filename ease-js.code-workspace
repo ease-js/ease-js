@@ -1,5 +1,9 @@
 {
-  "folders": [{ "name": "ease-js", "path": "." }],
+  "folders": [
+    { "name": "cli", "path": "./cli" },
+    { "name": "packer", "path": "./packer" },
+    { "name": "ease-js", "path": "." }
+  ],
   "settings": {
     "[html][xml]": {
       "editor.wordWrap": "on"
@@ -9,7 +13,8 @@
       "editor.formatOnSave": true
     },
     "[javascript][javascriptreact][typescript][typescriptreact]": {
-      "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      // "editor.defaultFormatter": "dbaeumer.vscode-eslint",
       "editor.formatOnSave": true
     },
     "cSpell.diagnosticLevel": "Hint",

@@ -1,12 +1,17 @@
 {
-  "name": "@ease-js/bundler",
+  "name": "@ease-js/packer",
   "version": "0.0.0-unreleased",
   "homepage": "https://github.com/ease-js/ease-js",
   "repository": {
     "type": "git",
     "url": "https://github.com/ease-js/ease-js.git",
-    "directory": "bundler"
+    "directory": "packer"
   },
   "sideEffects": false,
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "typescript": "^4.9.4",
+    "webpack": "^5.75.0",
+    "zod": "^3.20.2"
+  }
 }

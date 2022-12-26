@@ -4,5 +4,12 @@
   "type": "module",
   "dependencies": {
     "@ease-js/cli": "workspace:*"
+  },
+  "prettier": {
+    "arrowParens": "avoid",
+    "printWidth": 100,
+    "proseWrap": "never",
+    "singleQuote": true,
+    "trailingComma": "all"
   }
 }
