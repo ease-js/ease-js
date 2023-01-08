@@ -14,8 +14,21 @@ import { revoke } from "../tools/revocable.ts";
 const AnyScope = Symbol("AnyScope");
 const NeverScope = Symbol("NeverScope");
 
+/**
+ * 创建一项依赖所需的初始配置。
+ */
 export interface DependencyInit<Scope, Value = unknown> {
+  /**
+   * 当前节点的依赖共享范围的句柄。
+   *
+   * 假如后代依赖想要在此节点共享依赖，则需要指定同一个 scope 取值才能成功安装在此节点下。
+   */
   readonly scope?: Scope;
+  /**
+   * 当前节点保存的具有实际使用价值的内容，提供给引用此依赖的其他依赖使用。
+   *
+   * 也可以在创建 Dependency 之后，通过赋值 dependency.value 来更改。
+   */
   readonly value?: Value;
 }
 
@@ -52,6 +65,8 @@ export class Dependency<Key, Scope, Value = unknown> {
 
   /**
    * 读写当前节点保存的值，不接受 null 与 undefined 。
+   *
+   * 在首次赋值之前，此属性不可以被读取。
    */
   get value(): NonNullable<Value> {
     revoke.assert(this);
