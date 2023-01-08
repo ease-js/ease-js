@@ -1,3 +1,7 @@
 {
-  "importMap": "import-map.json"
+  "importMap": "import-map.json",
+  "tasks": {
+    "clean": "rm -r .coverage.local",
+    "test-coverage": "deno task clean && deno test --coverage=.coverage.local && deno coverage .coverage.local"
+  }
 }
