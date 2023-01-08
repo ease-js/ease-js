@@ -12,17 +12,14 @@ jobs:
         os: [macos-12, ubuntu-22.04]
     runs-on: ${{ matrix.os }}
     steps:
-      - id: checkout
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v3
-      - id: cache
-        name: Cache
+      - name: Cache
         uses: actions/cache@v3
         with:
           path: ${{ env.DENO_DIR }}
           key: ${{ matrix.os }}-${{ hashFiles('deno.lock') }}
-      - id: setup_deno
-        name: Setup Deno
+      - name: Setup Deno
         uses: denoland/setup-deno@v1.1.1
         with:
           deno-version: ${{ matrix.deno }}
@@ -31,12 +28,23 @@ jobs:
       - name: Lint Code
         run: deno lint
   Test:
-    strategy: ${{ jobs.Lint.strategy }}
-    runs-on: ${{ jobs.Lint.runs-on }}
+    strategy:
+      matrix:
+        deno: [v1.x]
+        os: [macos-12, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
     steps:
-      - ${{ jobs.Lint.steps.checkout }}
-      - ${{ jobs.Lint.steps.cache }}
-      - ${{ jobs.Lint.steps.setup_deno }}
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.DENO_DIR }}
+          key: ${{ matrix.os }}-${{ hashFiles('deno.lock') }}
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1.1.1
+        with:
+          deno-version: ${{ matrix.deno }}
       - name: Run Test Cases
         if: matrix.os != 'ubuntu-22.04'
         run: deno test
