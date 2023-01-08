@@ -10,6 +10,7 @@ jobs:
       matrix:
         deno: [v1.x]
         os: [macos-12, ubuntu-22.04]
+    name: Lint (deno-${{ matrix.deno }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -32,6 +33,7 @@ jobs:
       matrix:
         deno: [v1.x]
         os: [macos-12, ubuntu-22.04]
+    name: Test (deno-${{ matrix.deno }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
