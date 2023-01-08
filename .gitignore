@@ -1,4 +1,5 @@
 # local
+deno.lock
 .idea/
 *.local
 *.local.*

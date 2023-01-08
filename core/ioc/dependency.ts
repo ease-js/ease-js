@@ -6,7 +6,7 @@
  * @module
  */
 
-import { assertExists } from "https://deno.land/std@0.170.0/testing/asserts.ts";
+import { assertExists } from "std/testing/asserts.ts";
 import { emplaceMap } from "../tools/emplace.ts";
 import { revoke } from "../tools/revocable.ts";
 
