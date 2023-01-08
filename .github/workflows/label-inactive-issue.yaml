@@ -19,7 +19,7 @@ jobs:
         with:
           actions: check-inactive
           inactive-day: 30
-          inactive-label: Inactive
+          inactive-label: inactive
   Remove:
     if: contains(fromJSON('["issues", "issue_comment"]'), github.event_name) && github.event.issue.state == 'open' && github.actor == github.event.issue.user.login
     name: Remove Label
@@ -29,4 +29,4 @@ jobs:
         with:
           actions: remove-labels
           issue-number: ${{ github.event.issue.number }}
-          labels: Inactive
+          labels: inactive
