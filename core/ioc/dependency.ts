@@ -87,8 +87,10 @@ export class Dependency<Key, Scope, Value = unknown> {
     return emplaceMap(this.#references, key, {
       insert: () => {
         const reference = this.#lookupAncestor(shareScope).#install(key, init);
-        reference.#referrers ??= new Set();
-        reference.#referrers.add(this);
+        if (reference !== this) {
+          reference.#referrers ??= new Set();
+          reference.#referrers.add(this);
+        }
         return reference;
       },
     });
