@@ -1,0 +1,53 @@
+name: CI
+on: [push]
+permissions:
+  contents: read
+env:
+  DENO_DIR: .deno
+jobs:
+  Lint:
+    strategy: &strategy
+      matrix:
+        deno: [v1.x]
+        os: [macos-12, ubuntu-22.04]
+    runs-on: &runs_on ${{ matrix.os }}
+    steps:
+      - &checkout
+        name: Checkout
+        uses: actions/checkout@v3
+      - &cache
+        name: Cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.DENO_DIR }}
+          key: ${{ matrix.os }}-${{ hashFiles('deno.lock') }}
+      - &setup_deno
+        name: Setup Deno
+        uses: denoland/setup-deno@v1.1.1
+        with:
+          deno-version: ${{ matrix.deno }}
+      - name: Check Code Format
+        run: deno fmt --check
+      - name: Lint Code
+        run: deno lint
+  Test:
+    strategy: *strategy
+    runs-on: *runs_on
+    steps:
+      - *checkout
+      - *cache
+      - *setup_deno
+      - name: Run Test Cases
+        if: matrix.os != 'ubuntu-22.04'
+        run: deno test
+      - name: Run Test Cases
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          deno test --coverage=.coverage.local
+          deno coverage --lcov --output=.coverage.local.lcov .coverage.local
+      - name: Upload Coverage Info
+        if: matrix.os == 'ubuntu-22.04'
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: .coverage.local.lcov
