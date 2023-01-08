@@ -98,6 +98,8 @@ export class Dependency<Key, Scope, Value = unknown> {
    * 回收依赖。
    */
   unlink(key: Key): void {
+    revoke.assert(this);
+
     const root = this.#references?.get(key);
     if (!root) return;
 
