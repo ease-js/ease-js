@@ -1,7 +1,7 @@
 /**
- * # 依赖管理
+ * # 依赖的创建、回收与引用
  *
- * 此模块实现了通用的 class Dependency 用于管理依赖关系。
+ * 此模块实现了通用的 `class Dependency` 用于描述与管理程序的依赖关系。
  *
  * ## 简介
  *
@@ -38,7 +38,7 @@
  * C1    C2     C1    C2
  * ```
  *
- * ## 名词约定
+ * ## 术语约定
  *
  * ```plain
  *   RO_OT          RO_OT
@@ -69,11 +69,14 @@
  *
  * 此外，引用关系图中出现_回路_时，也可具体称为出现_循环依赖_。
  *
- * ## 使用限制
+ * ## 用法与限制
  *
  * 当你通过 `new Dependency(init)` 创建一个 Dependency 实例时，此实例一定是挂载树的根节点；换句话说，你无法通过
- * `new Dependency(init)` 创建子依赖之后连通到已经存在的挂载树与引用关系图中。不用担心，
- * Dependency 提供了足够可靠的两个公共方法 link() 与 unlink() ，分别用于加载与移除子依赖。
+ * `new Dependency(init)` 创建子依赖之后连通到已经存在的挂载树与引用关系图中，这是为了确保
+ * Dependency 实例的内部数据具备充足的安全性，保障内部依赖回收机制不会轻易收到外界影响。
+ *
+ * Dependency 提供了 `link()` 与 `unlink()` 两个公共方法分别用于加载与回收依赖，每一个依赖也都由一个
+ * Dependency 实例来表示，由此可构建出一个树状的结构，用于描述与管理你的程序的依赖关系。
  *
  * @module
  */
@@ -87,7 +90,8 @@ const AnyScope = Symbol("AnyScope");
 const NeverScope = Symbol("NeverScope");
 
 /**
- * 对一项依赖的描述。
+ * 对一项依赖的描述，相对于仅包含依赖自身信息的 `interface DependencyInit` ，此接口还包含
+ * `shareScope` 等与外部关系的限制条件的描述。
  */
 export interface DependencyDescriptor<Scope, Value = unknown>
   extends DependencyInit<Scope, Value> {
