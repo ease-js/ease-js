@@ -87,19 +87,41 @@ const AnyScope = Symbol("AnyScope");
 const NeverScope = Symbol("NeverScope");
 
 /**
+ * 对一项依赖的描述。
+ */
+export interface DependencyDescriptor<Scope, Value = unknown>
+  extends DependencyInit<Scope, Value> {
+  /**
+   * 当此依赖被安装时，如果指定的 shareScope 不存在，是否接受直接安装在根节点。
+   *
+   * @default false
+   */
+  readonly acceptRootScope?: boolean;
+  /**
+   * 当此依赖被安装时，应当安装在哪个范围下。不配置此选项、或者传入 `null` 与
+   * `undefined` ，则此依赖不会被共享。
+   */
+  readonly shareScope?: Scope | null;
+}
+
+/**
  * 创建一项依赖所需的初始配置。
  */
 export interface DependencyInit<Scope, Value = unknown> {
   /**
-   * 当前节点的依赖共享范围的句柄。
+   * 当前节点的依赖共享范围的句柄。假如后代依赖想要在此节点共享依赖，则需要指定同一个 scope
+   * 取值才能成功安装在此节点下。
    *
-   * 假如后代依赖想要在此节点共享依赖，则需要指定同一个 scope 取值才能成功安装在此节点下。
+   * @description
+   * 对于非根节点的依赖，不配置此项、或者传入 `null` 与 `undefined` 则不允许任何共享依赖安装在此处。
    */
   readonly scope?: Scope;
   /**
-   * 当前节点保存的具有实际使用价值的内容，提供给引用此依赖的其他依赖使用。
+   * 当前节点保存的具有实际使用价值的内容，提供给引用此依赖的其他依赖使用。也可以在创建
+   * Dependency 之后，通过赋值 `dependency.value` 来更改。
    *
-   * 也可以在创建 Dependency 之后，通过赋值 dependency.value 来更改。
+   * @description
+   * `null` 与 `undefined` 都将被视为空。
    */
   readonly value?: Value;
 }
@@ -142,12 +164,12 @@ export class Dependency<Key, Scope, Value = unknown> {
   }
 
   constructor(init: DependencyInit<Scope, Value>) {
-    this.#scope = init.scope === undefined ? NeverScope : init.scope;
+    this.#scope = init.scope ?? NeverScope;
     this.#value = init.value;
   }
 
   /**
-   * 读写当前节点保存的值，不接受 null 与 undefined 。
+   * 读写当前节点保存的值，不接受 `null` 与 `undefined` 。
    *
    * 在首次赋值之前，此属性不可以被读取。
    */
@@ -166,25 +188,24 @@ export class Dependency<Key, Scope, Value = unknown> {
 
   /**
    * 加载依赖。
-   *
-   * @param shareScope 指定向上查找共享依赖的范围，不指定则不向上查找。
    */
   link<ChildValue>(
     key: Key,
-    init: DependencyInit<Scope, ChildValue>,
-    shareScope?: Scope,
+    descriptor: DependencyDescriptor<Scope, ChildValue>,
   ): Dependency<Key, Scope, ChildValue>;
   link(
     key: Key,
-    init: DependencyInit<Scope>,
-    shareScope: Scope | typeof AnyScope = AnyScope,
+    descriptor: DependencyDescriptor<Scope>,
   ): Dependency<Key, Scope> {
     revoke.assert(this);
 
     this.#references ??= new Map();
     return emplaceMap(this.#references, key, {
       insert: () => {
-        const reference = this.#lookupAncestor(shareScope).#install(key, init);
+        const reference = this.#lookupShareScope(
+          descriptor.acceptRootScope ?? false,
+          descriptor.shareScope ?? AnyScope,
+        ).#install(key, descriptor);
         reference.#referrers ??= new Set();
         reference.#referrers.add(this);
         return reference;
@@ -286,21 +307,25 @@ export class Dependency<Key, Scope, Value = unknown> {
   }
 
   /**
-   * 查找指定 scope 下的祖先节点：
-   * - 传入 AnyScope 总是会命中当前节点；
-   * - 如果没有找到符合条件的祖先节点，则使用根节点。
+   * 查找可用的共享范围。
    */
-  #lookupAncestor(under: Scope | typeof AnyScope): Dependency<Key, Scope> {
-    if (under === AnyScope) return this;
+  #lookupShareScope(
+    acceptRootScope: boolean,
+    shareScope: Scope | typeof AnyScope,
+  ): Dependency<Key, Scope> {
+    if (shareScope === AnyScope) return this;
 
     const { is } = Object;
     let ancestor: Dependency<Key, Scope> | undefined;
     for (
       ancestor = this;
-      ancestor.#parent && !is(ancestor.#scope, under);
+      !is(ancestor.#scope, shareScope);
       ancestor = ancestor.#parent[0]
     ) {
-      // noop
+      if (!ancestor.#parent) {
+        if (acceptRootScope) return ancestor;
+        throw new Error("No matching shareScope found");
+      }
     }
     return ancestor;
   }
