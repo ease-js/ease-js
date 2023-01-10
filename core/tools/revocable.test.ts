@@ -44,7 +44,7 @@ Deno.test("function revoke()", async (t): Promise<void> => {
 
   // revoke.assert() tests
   await t.step(
-    "should not throw an assertion if some object is revoked by revoke()",
+    "should not throw an assertion and return undefined if some object is revoked by revoke()",
     () => {
       const testObj = {};
 
