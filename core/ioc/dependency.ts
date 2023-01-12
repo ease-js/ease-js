@@ -81,7 +81,7 @@
  * @module
  */
 
-import { assertExists } from "std/testing/asserts.ts";
+import { assert, assertExists } from "std/testing/asserts.ts";
 import { emplaceMap } from "../tools/emplace.ts";
 import { revoke } from "../tools/revocable.ts";
 
@@ -93,8 +93,8 @@ const NeverScope = Symbol("NeverScope");
  * 对一项依赖的描述，相对于仅包含依赖自身信息的 `interface DependencyInit` ，此接口还包含
  * `shareScope` 等与外部关系的限制条件的描述。
  */
-export interface DependencyDescriptor<Scope, Value = unknown>
-  extends DependencyInit<Scope, Value> {
+export interface DependencyDescriptor<Key, Scope, Value = unknown>
+  extends DependencyInit<Key, Scope, Value> {
   /**
    * 当此依赖被安装时，如果指定的 shareScope 不存在，是否接受直接安装在根节点。
    *
@@ -111,7 +111,12 @@ export interface DependencyDescriptor<Scope, Value = unknown>
 /**
  * 创建一项依赖所需的初始配置。
  */
-export interface DependencyInit<Scope, Value = unknown> {
+export interface DependencyInit<Key, Scope, Value = unknown> {
+  /**
+   * 当前节点保存的具有实际使用价值的内容，提供给引用此依赖的其他依赖使用。只有首次访问
+   * `dependency.value` 时会调用此函数进行创建。
+   */
+  readonly create: (dependency: Dependency<Key, Scope, Value>) => Value;
   /**
    * 当前节点的依赖共享范围的句柄。假如后代依赖想要在此节点共享依赖，则需要指定同一个 scope
    * 取值才能成功安装在此节点下。
@@ -120,14 +125,6 @@ export interface DependencyInit<Scope, Value = unknown> {
    * 对于非根节点的依赖，不配置此项、或者传入 `null` 与 `undefined` 则不允许任何共享依赖安装在此处。
    */
   readonly scope?: Scope;
-  /**
-   * 当前节点保存的具有实际使用价值的内容，提供给引用此依赖的其他依赖使用。也可以在创建
-   * Dependency 之后，通过赋值 `dependency.value` 来更改。
-   *
-   * @description
-   * `null` 与 `undefined` 都将被视为空。
-   */
-  readonly value?: Value;
 }
 
 /**
@@ -157,7 +154,7 @@ export class Dependency<Key, Scope, Value = unknown> {
   /**
    * 当前节点保存的值。
    */
-  #value: Value | undefined;
+  #value: (() => Value) | undefined;
 
   /**
    * 当前节点是否为根节点。
@@ -167,27 +164,27 @@ export class Dependency<Key, Scope, Value = unknown> {
     return !revoke.has(this) && !this.#parent;
   }
 
-  constructor(init: DependencyInit<Scope, Value>) {
-    this.#scope = init.scope ?? NeverScope;
-    this.#value = init.value;
+  constructor(init: DependencyInit<Key, Scope, Value>) {
+    const { create, scope } = init;
+    assert(typeof create === "function");
+
+    this.#scope = scope ?? NeverScope;
+    this.#value = () => {
+      // 在调用 value 的过程中，再次访问 dependency.value 不会重复调用此函数
+      this.#value = undefined;
+      const value = create(this);
+      this.#value = () => value;
+      return value;
+    };
   }
 
   /**
-   * 读写当前节点保存的值，不接受 `null` 与 `undefined` 。
-   *
-   * 在首次赋值之前，此属性不可以被读取。
+   * 读取当前节点保存的值，在完成初始化之前，此属性不可以被读取。
    */
-  get value(): NonNullable<Value> {
+  get value(): Value {
     revoke.assert(this);
     assertExists(this.#value, "Dependency not ready yet");
-
-    return this.#value;
-  }
-  set value(value: NonNullable<Value>) {
-    revoke.assert(this);
-    assertExists(value);
-
-    this.#value = value;
+    return this.#value();
   }
 
   /**
@@ -195,11 +192,11 @@ export class Dependency<Key, Scope, Value = unknown> {
    */
   link<ChildValue>(
     key: Key,
-    descriptor: DependencyDescriptor<Scope, ChildValue>,
+    descriptor: DependencyDescriptor<Key, Scope, ChildValue>,
   ): Dependency<Key, Scope, ChildValue>;
   link(
     key: Key,
-    descriptor: DependencyDescriptor<Scope>,
+    descriptor: DependencyDescriptor<Key, Scope>,
   ): Dependency<Key, Scope> {
     revoke.assert(this);
 
@@ -268,11 +265,11 @@ export class Dependency<Key, Scope, Value = unknown> {
    */
   #install<ChildValue>(
     key: Key,
-    init: DependencyInit<Scope, ChildValue>,
+    init: DependencyInit<Key, Scope, ChildValue>,
   ): Dependency<Key, Scope, ChildValue>;
   #install(
     key: Key,
-    init: DependencyInit<Scope>,
+    init: DependencyInit<Key, Scope>,
   ): Dependency<Key, Scope> {
     this.#children ??= new Map();
     return emplaceMap(this.#children, key, {
