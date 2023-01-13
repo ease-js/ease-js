@@ -13,9 +13,6 @@ import * as deps from "./dependency.ts";
 // deno-lint-ignore no-explicit-any
 type Any = any;
 type AnyParams = readonly Any[];
-type Constructor<Params extends AnyParams, Instance> = new (
-  ...params: Params
-) => Instance;
 type Writable<T> = { -readonly [Key in keyof T]: T[Key] };
 
 type Dependency<Params extends AnyParams, Value> = deps.Dependency<
@@ -35,12 +32,12 @@ type DependencyHoistConfig = deps.DependencyHoistConfig<
 type DependencyKey<Params extends AnyParams, Value> =
   | SimpleDependencyKey<Params, Value>
   | TemplateDependencyKey<Params, Value>;
-type DependencyScope = Constructor<Any, Any>;
+type DependencyScope = new (...params: Any) => Any;
 
-type SimpleDependencyKey<Params extends AnyParams, Value> = Constructor<
-  [...[host: DependencyHost], ...Params],
-  Value
->;
+type SimpleDependencyKey<Params extends AnyParams, Value> = new (
+  host: DependencyHost,
+  ...params: Params
+) => Value;
 
 type TemplateDependencyBrand = { readonly brand: unique symbol }["brand"];
 // https://github.com/tc39/proposal-symbols-as-weakmap-keys
@@ -72,7 +69,7 @@ export type {
 export interface DependencyContainer {
   readonly Hoist: (
     config: DependencyHoistConfig | false,
-  ) => (constructor: Constructor<Any, Any>) => void;
+  ) => (key: SimpleDependencyKey<Any, Any>) => void;
   readonly define: <Params extends AnyParams, Value>(
     descriptor:
       | TemplateDependencyDescriptor<Params, Value>
