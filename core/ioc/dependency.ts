@@ -137,7 +137,7 @@ export interface DependencyInit<Key, Scope, Value = unknown> {
    * @description
    * 对于非根节点的依赖，不配置此项、或者传入 `null` 与 `undefined` 则不允许任何共享依赖安装在此处。
    */
-  readonly scope?: Scope;
+  readonly scope?: Scope | null;
 }
 
 /**
