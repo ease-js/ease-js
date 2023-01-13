@@ -86,7 +86,7 @@ import { emplaceMap } from "../tools/emplace.ts";
 import { revoke } from "../tools/revocable.ts";
 
 // 特殊的 scope 类型，与 TypeScript 的 any / never 类似
-const AnyScope = Symbol("AnyScope");
+// const AnyScope = Symbol("AnyScope");
 const NeverScope = Symbol("NeverScope");
 
 /**
@@ -96,16 +96,29 @@ const NeverScope = Symbol("NeverScope");
 export interface DependencyDescriptor<Key, Scope, Value = unknown>
   extends DependencyInit<Key, Scope, Value> {
   /**
-   * 当此依赖被安装时，如果指定的 shareScope 不存在，是否接受直接安装在根节点。
-   *
-   * @default false
+   * 此依赖被安装时的提升规则，不配置此选项、或者传入 `false` 与 `undefined` 则不会被提升。
    */
-  readonly acceptRootScope?: boolean;
+  readonly hoist?: DependencyHoistConfig<Scope> | false;
   /**
-   * 当此依赖被安装时，应当安装在哪个范围下。不配置此选项、或者传入 `null` 与
-   * `undefined` ，则此依赖不会被共享。
+   * 当前依赖的唯一标识。
    */
-  readonly shareScope?: Scope | null;
+  readonly key: Key;
+}
+
+/**
+ * 依赖被安装时的提升规则。
+ */
+export interface DependencyHoistConfig<Scope> {
+  /**
+   * 当此依赖被安装时，如果指定的提升范围 scope 不存在，是否接受提升到根节点。
+   *
+   * @default true
+   */
+  readonly acceptRoot?: boolean;
+  /**
+   * 当此依赖被安装时，应当提升到哪个范围下。
+   */
+  readonly scope: Scope;
 }
 
 /**
@@ -116,7 +129,7 @@ export interface DependencyInit<Key, Scope, Value = unknown> {
    * 当前节点保存的具有实际使用价值的内容，提供给引用此依赖的其他依赖使用。只有首次访问
    * `dependency.value` 时会调用此函数进行创建。
    */
-  readonly create: (dependency: Dependency<Key, Scope, Value>) => Value;
+  readonly load: (dependency: Dependency<Key, Scope, Value>) => Value;
   /**
    * 当前节点的依赖共享范围的句柄。假如后代依赖想要在此节点共享依赖，则需要指定同一个 scope
    * 取值才能成功安装在此节点下。
@@ -165,14 +178,14 @@ export class Dependency<Key, Scope, Value = unknown> {
   }
 
   constructor(init: DependencyInit<Key, Scope, Value>) {
-    const { create, scope } = init;
-    assert(typeof create === "function");
+    const { load, scope } = init;
+    assert(typeof load === "function");
 
     this.#scope = scope ?? NeverScope;
     this.#value = () => {
       // 在调用 value 的过程中，再次访问 dependency.value 不会重复调用此函数
       this.#value = undefined;
-      const value = create(this);
+      const value = load(this);
       this.#value = () => value;
       return value;
     };
@@ -191,22 +204,18 @@ export class Dependency<Key, Scope, Value = unknown> {
    * 加载依赖。
    */
   link<ChildValue>(
-    key: Key,
     descriptor: DependencyDescriptor<Key, Scope, ChildValue>,
   ): Dependency<Key, Scope, ChildValue>;
-  link(
-    key: Key,
-    descriptor: DependencyDescriptor<Key, Scope>,
-  ): Dependency<Key, Scope> {
+  link(descriptor: DependencyDescriptor<Key, Scope>): Dependency<Key, Scope> {
     revoke.assert(this);
+
+    const { key } = descriptor;
 
     this.#references ??= new Map();
     return emplaceMap(this.#references, key, {
       insert: () => {
-        const reference = this.#lookupShareScope(
-          descriptor.acceptRootScope ?? false,
-          descriptor.shareScope ?? AnyScope,
-        ).#install(key, descriptor);
+        const reference = this.#lookupShareScope(descriptor.hoist)
+          .#install(key, descriptor);
         reference.#referrers ??= new Set();
         reference.#referrers.add(this);
         return reference;
@@ -311,20 +320,20 @@ export class Dependency<Key, Scope, Value = unknown> {
    * 查找可用的共享范围。
    */
   #lookupShareScope(
-    acceptRootScope: boolean,
-    shareScope: Scope | typeof AnyScope,
+    hoist: DependencyHoistConfig<Scope> | false | undefined,
   ): Dependency<Key, Scope> {
-    if (shareScope === AnyScope) return this;
+    if (!hoist) return this;
 
     const { is } = Object;
+    const { acceptRoot = true, scope } = hoist;
     let ancestor: Dependency<Key, Scope> | undefined;
     for (
       ancestor = this;
-      !is(ancestor.#scope, shareScope);
+      !is(ancestor.#scope, scope);
       ancestor = ancestor.#parent[0]
     ) {
       if (!ancestor.#parent) {
-        if (acceptRootScope) return ancestor;
+        if (acceptRoot) return ancestor;
         throw new Error("No matching shareScope found");
       }
     }
