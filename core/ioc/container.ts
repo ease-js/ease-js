@@ -30,96 +30,78 @@ type DependencyHoistConfig = deps.DependencyHoistConfig<
   DependencyScope
 >;
 type DependencyKey<Params extends AnyParams, Value> =
-  | SimpleDependencyKey<Params, Value>
-  | TemplateDependencyKey<Params, Value>;
-type DependencyScope = new (...params: Any) => Any;
+  | CallableDependencyKey<Params, Value>
+  | NewableDependencyKey<Params, Value>;
+type DependencyScope = DependencyKey<Any, Any>;
 
-type SimpleDependencyKey<Params extends AnyParams, Value> = new (
+type CallableDependencyKey<Params extends AnyParams, Value> = (
+  host: DependencyHost,
+  ...params: Params
+) => Value;
+type NewableDependencyKey<Params extends AnyParams, Value> = new (
   host: DependencyHost,
   ...params: Params
 ) => Value;
 
-type TemplateDependencyBrand = { readonly brand: unique symbol }["brand"];
-// https://github.com/tc39/proposal-symbols-as-weakmap-keys
-// export type TemplateDependency<Value> = symbol & { brand: Value };
-type TemplateDependencyKey<Params extends AnyParams, Value> = {
-  readonly [Brand in TemplateDependencyBrand]: {
-    readonly params: Params;
-    readonly value: Value;
-  };
-};
-
-// deno-lint-ignore no-empty-interface
-interface SimpleDependencyDescriptor<Params extends AnyParams, Value>
-  extends Pick<DependencyDescriptor<Params, Value>, "hoist"> {}
-interface TemplateDependencyDescriptor<Params extends AnyParams, Value>
-  extends Pick<DependencyDescriptor<Params, Value>, "hoist" | "scope"> {
-  readonly load: (host: DependencyHost, ...params: Params) => Value;
-}
+type PartialDependencyDescriptor<Params extends AnyParams, Value> = Pick<
+  DependencyDescriptor<Params, Value>,
+  "hoist" | "scope"
+>;
 
 export type {
+  CallableDependencyKey,
   DependencyHoistConfig,
   DependencyKey,
   DependencyScope,
-  SimpleDependencyKey,
-  TemplateDependencyDescriptor,
-  TemplateDependencyKey,
+  NewableDependencyKey,
 };
 
 export interface DependencyContainer {
   readonly Hoist: (
     config: DependencyHoistConfig | false,
-  ) => (key: SimpleDependencyKey<Any, Any>) => void;
-  readonly define: <Params extends AnyParams, Value>(
-    descriptor:
-      | TemplateDependencyDescriptor<Params, Value>
-      | TemplateDependencyDescriptor<Params, Value>["load"],
-  ) => TemplateDependencyKey<Params, Value>;
+  ) => (key: DependencyKey<Any, Any>) => void;
+  readonly Scope: (
+    scope: DependencyScope | null,
+  ) => (key: DependencyKey<Any, Any>) => void;
 }
 
 export interface DependencyHost {
+  readonly call: <Params extends AnyParams, Value>(
+    key: CallableDependencyKey<Params, Value>,
+    ...params: Params
+  ) => Value;
+  readonly new: <Params extends AnyParams, Value>(
+    key: NewableDependencyKey<Params, Value>,
+    ...params: Params
+  ) => Value;
   readonly revoke: <Params extends AnyParams, Value>(
     key: DependencyKey<Params, Value>,
   ) => void;
-  readonly use: <Params extends AnyParams, Value>(
-    key: DependencyKey<Params, Value>,
-    ...params: Params
-  ) => Value;
 }
 
 /**
  * 创建一个依赖容器。
  */
 export function createDependencyContainer(): DependencyContainer {
-  const SimpleDependencyDescriptorMap = new WeakMap<
-    SimpleDependencyKey<Any, Any>,
-    Writable<SimpleDependencyDescriptor<Any, Any>>
-  >();
-  const TemplateDependencyDescriptorMap = new WeakMap<
-    TemplateDependencyKey<Any, Any>,
-    TemplateDependencyDescriptor<Any, Any>
+  const DescriptorMap = new WeakMap<
+    DependencyKey<Any, Any>,
+    Writable<PartialDependencyDescriptor<Any, Any>>
   >();
 
   return {
     Hoist(config) {
       return function decorator(key) {
-        updateSimpleDependencyDescriptor(key, (descriptor) => {
+        updateDependencyDescriptor(key, (descriptor) => {
           descriptor.hoist = config;
         });
       };
     },
-    define<Params extends AnyParams, Value>(
-      descriptorOrLoader:
-        | TemplateDependencyDescriptor<Params, Value>
-        | TemplateDependencyDescriptor<Params, Value>["load"],
-    ) {
-      const key = {} as TemplateDependencyKey<Params, Value>;
-      const descriptor: TemplateDependencyDescriptor<Params, Value> =
-        typeof descriptorOrLoader === "function"
-          ? { load: descriptorOrLoader }
-          : descriptorOrLoader;
-      TemplateDependencyDescriptorMap.set(key, descriptor);
-      return key;
+    Scope(scope) {
+      return function decorator(key) {
+        updateDependencyDescriptor(key, (descriptor) => {
+          descriptor.scope = scope;
+        });
+      };
     },
   };
 
@@ -127,70 +109,48 @@ export function createDependencyContainer(): DependencyContainer {
     dependency: Dependency<Any, Any>,
   ): DependencyHost {
     return {
+      call(key, ...params) {
+        const descriptor = createDependencyDescriptor(key, (host) => {
+          return key(host, ...params);
+        });
+        return dependency.link(descriptor).value;
+      },
+      new(key, ...params) {
+        const descriptor = createDependencyDescriptor(key, (host) => {
+          return new key(host, ...params);
+        });
+        return dependency.link(descriptor).value;
+      },
       revoke(key) {
         dependency.unlink(key);
       },
-      use(key, ...params) {
-        const descriptor = transformDependencyDescriptor(key, params);
-        return dependency.link(descriptor).value;
-      },
     };
   }
 
-  function transformDependencyDescriptor<Params extends AnyParams, Value>(
+  function createDependencyDescriptor<Params extends AnyParams, Value>(
     key: DependencyKey<Params, Value>,
-    params: Params,
+    create: (host: DependencyHost) => Value,
   ): DependencyDescriptor<Params, Value> {
-    if (isDependencyTemplateHandle(key)) {
-      return transformTemplateDependencyDescriptor(key, params);
-    }
-    return transformSimpleDependencyDescriptor(key, params);
-  }
-
-  function transformSimpleDependencyDescriptor<Params extends AnyParams, Value>(
-    key: SimpleDependencyKey<Params, Value>,
-    params: Params,
-  ): DependencyDescriptor<Params, Value> {
-    const { hoist } = SimpleDependencyDescriptorMap.get(key) ?? {};
-    const load = (dependency: Dependency<Params, Value>) => {
-      return new key(createDependencyHost(dependency), ...params);
-    };
-    return { hoist, key, load, scope: key };
-  }
-
-  function transformTemplateDependencyDescriptor<
-    Params extends AnyParams,
-    Value,
-  >(
-    key: TemplateDependencyKey<Params, Value>,
-    params: Params,
-  ): DependencyDescriptor<Params, Value> {
-    const descriptor: TemplateDependencyDescriptor<Params, Value> | undefined =
-      TemplateDependencyDescriptorMap.get(key);
+    const descriptor: PartialDependencyDescriptor<Params, Value> =
+      DescriptorMap.get(key) || {};
     assert(descriptor, "Dependency not exists");
-    const { hoist, load: proxy, scope } = descriptor;
+    const { hoist, scope = key } = descriptor;
     const load = (dependency: Dependency<Params, Value>) => {
-      return proxy(createDependencyHost(dependency), ...params);
+      return create(createDependencyHost(dependency));
     };
     return { hoist, key, load, scope };
   }
 
-  function updateSimpleDependencyDescriptor<Params extends AnyParams, Value>(
-    key: SimpleDependencyKey<Params, Value>,
+  function updateDependencyDescriptor<Params extends AnyParams, Value>(
+    key: DependencyKey<Params, Value>,
     update: (
-      descriptor: Writable<SimpleDependencyDescriptor<Params, Value>>,
+      descriptor: Writable<PartialDependencyDescriptor<Params, Value>>,
     ) => void,
   ): void {
-    const descriptor = emplaceMap(SimpleDependencyDescriptorMap, key, {
-      insert: (): SimpleDependencyDescriptor<Params, Value> => ({}),
+    const descriptor = emplaceMap(DescriptorMap, key, {
+      insert: (): PartialDependencyDescriptor<Params, Value> => ({}),
     });
 
     update(descriptor);
   }
-}
-
-function isDependencyTemplateHandle<Params extends AnyParams, Value>(
-  key: DependencyKey<Params, Value>,
-): key is TemplateDependencyKey<Params, Value> {
-  return typeof key === "object";
 }
