@@ -6,7 +6,6 @@
  * @module
  */
 
-import { assert } from "std/testing/asserts.ts";
 import { emplaceMap } from "../tools/emplace.ts";
 import * as deps from "./dependency.ts";
 
@@ -63,6 +62,10 @@ export interface DependencyContainer {
   readonly Scope: (
     scope: DependencyScope | null,
   ) => (key: DependencyKey<Any, Any>) => void;
+  readonly createRoot: <Params extends AnyParams, Value>(
+    key: NewableDependencyKey<Params, Value>,
+    ...params: Params
+  ) => Value;
 }
 
 export interface DependencyHost {
@@ -103,6 +106,10 @@ export function createDependencyContainer(): DependencyContainer {
         });
       };
     },
+    createRoot(key, ...params) {
+      const load = createNewableDependencyLoader(key, params);
+      return new deps.Dependency({ load, scope: key }).value;
+    },
   };
 
   function createDependencyHost(
@@ -110,15 +117,13 @@ export function createDependencyContainer(): DependencyContainer {
   ): DependencyHost {
     return {
       call(key, ...params) {
-        const descriptor = createDependencyDescriptor(key, (host) => {
-          return key(host, ...params);
-        });
+        const load = createCallableDependencyLoader(key, params);
+        const descriptor = createDependencyDescriptor(key, load);
         return dependency.link(descriptor).value;
       },
       new(key, ...params) {
-        const descriptor = createDependencyDescriptor(key, (host) => {
-          return new key(host, ...params);
-        });
+        const load = createNewableDependencyLoader(key, params);
+        const descriptor = createDependencyDescriptor(key, load);
         return dependency.link(descriptor).value;
       },
       revoke(key) {
@@ -127,17 +132,31 @@ export function createDependencyContainer(): DependencyContainer {
     };
   }
 
+  function createCallableDependencyLoader<Params extends AnyParams, Value>(
+    key: CallableDependencyKey<Params, Value>,
+    params: Params,
+  ): (dependency: Dependency<Params, Value>) => Value {
+    return (dependency) => {
+      return key(createDependencyHost(dependency), ...params);
+    };
+  }
+
+  function createNewableDependencyLoader<Params extends AnyParams, Value>(
+    key: NewableDependencyKey<Params, Value>,
+    params: Params,
+  ): (dependency: Dependency<Params, Value>) => Value {
+    return (dependency) => {
+      return new key(createDependencyHost(dependency), ...params);
+    };
+  }
+
   function createDependencyDescriptor<Params extends AnyParams, Value>(
     key: DependencyKey<Params, Value>,
-    create: (host: DependencyHost) => Value,
+    load: (dependency: Dependency<Params, Value>) => Value,
   ): DependencyDescriptor<Params, Value> {
     const descriptor: PartialDependencyDescriptor<Params, Value> =
       DescriptorMap.get(key) || {};
-    assert(descriptor, "Dependency not exists");
     const { hoist, scope = key } = descriptor;
-    const load = (dependency: Dependency<Params, Value>) => {
-      return create(createDependencyHost(dependency));
-    };
     return { hoist, key, load, scope };
   }
 
