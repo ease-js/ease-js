@@ -1,10 +1,10 @@
 import type { Draft } from "immer";
 import { createDraft, finishDraft } from "immer";
-import React from "react";
 import { BehaviorSubject } from "rxjs";
 import type { DependencyScope } from "../../core.ts";
 import { Hoist, Scope } from "../../core.ts";
 import { useConstant } from "../tools/memo/use-constant.ts";
+import { useBehaviorSubjectValue } from "../tools/rxjs/use-behavior-subject-value.ts";
 import { useDependencyHost } from "./context.ts";
 
 export class ReactState<State> extends BehaviorSubject<State> {
@@ -67,19 +67,7 @@ export function defineState<State>(
   return function useState(): ReactState<State> {
     const host = useDependencyHost();
     const state = useConstant(() => host.new(SpecifyReactState));
-
-    const getSnapshot = useConstant(() => {
-      return (): State => state.value;
-    });
-    const subscribe = useConstant(() => {
-      return (onChange: () => void): () => void => {
-        const subscription = state.subscribe(onChange);
-        return () => subscription.unsubscribe();
-      };
-    });
-
-    React.useSyncExternalStore(subscribe, getSnapshot);
-
+    useBehaviorSubjectValue(state);
     return state;
   };
 }
