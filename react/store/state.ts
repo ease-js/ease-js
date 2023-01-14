@@ -47,14 +47,14 @@ export class ReactState<State> extends BehaviorSubject<State> {
 }
 
 export interface StateDefinition<State> {
-  readonly hoist?: DependencyScope | false;
+  readonly hoist?: DependencyScope | boolean;
   readonly state: State;
 }
 
 export function defineState<State>(
   definition: StateDefinition<State>,
 ): () => ReactState<State> {
-  const { hoist = false, state: initialState } = definition;
+  const { hoist, state: initialState } = definition;
 
   @Hoist(hoist)
   @Scope(ReactState)

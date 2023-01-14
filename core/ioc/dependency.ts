@@ -96,9 +96,10 @@ const NeverScope = Symbol("NeverScope");
 export interface DependencyDescriptor<Key, Scope, Value = unknown>
   extends DependencyInit<Key, Scope, Value> {
   /**
-   * 此依赖被安装时的提升规则，不配置此选项、或者传入 `false` 与 `undefined` 则不会被提升。
+   * 此依赖被安装时的提升规则，配置为 `true` 则提升到根节点，不配置此选项、或者传入 `false`
+   * 则不会被提升。
    */
-  readonly hoist?: DependencyHoistConfig<Scope> | false;
+  readonly hoist?: DependencyHoistConfig<Scope> | boolean;
   /**
    * 当前依赖的唯一标识。
    */
@@ -320,12 +321,14 @@ export class Dependency<Key, Scope, Value = unknown> {
    * 查找可用的共享范围。
    */
   #lookupShareScope(
-    hoist: DependencyHoistConfig<Scope> | false | undefined,
+    hoist: DependencyHoistConfig<Scope> | boolean | undefined,
   ): Dependency<Key, Scope> {
     if (!hoist) return this;
 
     const { is } = Object;
-    const { acceptRoot = true, scope } = hoist;
+    const { acceptRoot = true, scope } = hoist === true
+      ? { acceptRoot: true, scope: NeverScope }
+      : hoist;
     let ancestor: Dependency<Key, Scope> | undefined;
     for (
       ancestor = this;

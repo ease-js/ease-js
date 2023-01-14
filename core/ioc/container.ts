@@ -55,8 +55,11 @@ export type {
 };
 
 export interface DependencyContainer {
+  /**
+   * @param scope 需要提升的范围，默认为 `true` 。
+   */
   readonly Hoist: (
-    scope: DependencyScope | false,
+    scope?: DependencyScope | boolean,
   ) => (key: DependencyKey<Any, Any>) => void;
   readonly Scope: (
     scope: DependencyScope | null,
@@ -99,10 +102,10 @@ export function createDependencyContainer(): DependencyContainer {
   >();
 
   return {
-    Hoist(scope) {
+    Hoist(scope = true) {
       return function decorator(key) {
         updateDependencyDescriptor(key, (descriptor) => {
-          descriptor.hoist = scope ? { scope } : false;
+          descriptor.hoist = typeof scope === "boolean" ? scope : { scope };
         });
       };
     },
