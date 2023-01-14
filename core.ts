@@ -1,4 +1,4 @@
-import { createDependencyContainer } from "./ioc/container.ts";
+import { createDependencyContainer } from "./core/ioc/container.ts";
 
 export type {
   CallableDependencyKey,
@@ -7,6 +7,6 @@ export type {
   DependencyRootHost,
   DependencyScope,
   NewableDependencyKey,
-} from "./ioc/container.ts";
+} from "./core/ioc/container.ts";
 
 export const { Hoist, Scope, createRoot } = createDependencyContainer();
