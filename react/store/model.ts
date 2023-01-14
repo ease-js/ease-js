@@ -7,7 +7,9 @@ import { useConstant } from "../tools/memo/use-constant.ts";
 import { useDependencyHost } from "./context.ts";
 
 // deno-lint-ignore no-explicit-any
-export abstract class Model<State extends { readonly [key: string]: any }>
+export type AnyModelState = { readonly [key: string | number]: any };
+
+export abstract class Model<State extends AnyModelState>
   extends BehaviorSubject<State> {
   // deno-lint-ignore no-explicit-any
   static useModel<T extends Model<any>>(
@@ -30,27 +32,33 @@ export abstract class Model<State extends { readonly [key: string]: any }>
     return [state, model];
   }
 
-  #draft: readonly [Draft<State>] | undefined;
+  #draft: Draft<State> | null = null;
 
   get draft(): Draft<State> {
-    this.#draft ??= [createDraft(this.getValue())];
-    return this.#draft[0];
+    if (this.#draft === null) this.#draft = createDraft(this.getValue());
+    return this.#draft;
   }
 
   commit(): void {
-    const draft = this.#draft;
-    this.#draft = undefined;
-
-    if (draft) {
-      const value = finishDraft(draft[0]) as State;
-      if (!Object.is(this.getValue(), value)) this.next(value);
+    const next = this.#finishDraft();
+    if (next !== null && !Object.is(this.getValue(), next)) {
+      this.next(next);
     }
   }
 
-  next(value: State) {
-    const draft = this.#draft;
-    this.#draft = undefined;
-    if (draft) finishDraft(draft);
+  complete(): void {
+    this.#finishDraft();
+    super.complete();
+  }
+
+  next(value: State): void {
+    this.#finishDraft();
     super.next(value);
+  }
+
+  #finishDraft(): State | null {
+    const draft = this.#draft;
+    this.#draft = null;
+    return draft === null ? null : finishDraft(draft) as State;
   }
 }
