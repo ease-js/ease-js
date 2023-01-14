@@ -26,9 +26,6 @@ type DependencyDescriptor<Params extends AnyParams, Value> =
     DependencyScope,
     Value
   >;
-type DependencyHoistConfig = deps.DependencyHoistConfig<
-  DependencyScope
->;
 type DependencyKey<Params extends AnyParams, Value> =
   | CallableDependencyKey<Params, Value>
   | NewableDependencyKey<Params, Value>;
@@ -50,7 +47,6 @@ type PartialDependencyDescriptor<Params extends AnyParams, Value> = Pick<
 
 export type {
   CallableDependencyKey,
-  DependencyHoistConfig,
   DependencyKey,
   DependencyScope,
   NewableDependencyKey,
@@ -58,7 +54,7 @@ export type {
 
 export interface DependencyContainer {
   readonly Hoist: (
-    config: DependencyHoistConfig | false,
+    scope: DependencyScope | false,
   ) => (key: DependencyKey<Any, Any>) => void;
   readonly Scope: (
     scope: DependencyScope | null,
@@ -101,10 +97,10 @@ export function createDependencyContainer(): DependencyContainer {
   >();
 
   return {
-    Hoist(config) {
+    Hoist(scope) {
       return function decorator(key) {
         updateDependencyDescriptor(key, (descriptor) => {
-          descriptor.hoist = config;
+          descriptor.hoist = scope ? { scope } : false;
         });
       };
     },
