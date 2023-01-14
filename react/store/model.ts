@@ -32,12 +32,10 @@ export abstract class Model<State extends AnyState> {
   }
 
   #draft: Draft<State> | undefined;
-  #_subject: BehaviorSubject<State> | undefined;
+  readonly #subject: BehaviorSubject<State>;
 
-  abstract readonly initialState: State;
-
-  get #subject(): BehaviorSubject<State> {
-    return this.#_subject ??= new BehaviorSubject(this.initialState);
+  constructor(initialState: State) {
+    this.#subject = new BehaviorSubject(initialState);
   }
 
   get draft(): Draft<State> {

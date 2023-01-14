@@ -29,7 +29,9 @@ type DependencyDescriptor<Params extends AnyParams, Value> =
 type DependencyKey<Params extends AnyParams, Value> =
   | CallableDependencyKey<Params, Value>
   | NewableDependencyKey<Params, Value>;
-type DependencyScope = DependencyKey<Any, Any>;
+type DependencyScope =
+  | ((...params: Any) => Any)
+  | (new (...params: Any) => Any);
 
 type CallableDependencyKey<Params extends AnyParams, Value> = (
   host: DependencyHost,
