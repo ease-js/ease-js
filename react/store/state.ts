@@ -1,13 +1,23 @@
 import type { Draft } from "immer";
 import { createDraft, finishDraft } from "immer";
 import { BehaviorSubject } from "rxjs";
-import type { DependencyScope } from "../../core.ts";
+import type { DependencyScope, NewableDependencyKey } from "../../core.ts";
 import { Hoist, Scope } from "../../core.ts";
 import { useConstant } from "../tools/memo/use-constant.ts";
 import { useBehaviorSubjectValue } from "../tools/rxjs/use-behavior-subject-value.ts";
 import { useDependencyHost } from "./context.ts";
 
 export class ReactState<State> extends BehaviorSubject<State> {
+  // deno-lint-ignore no-explicit-any
+  static useState<Instance extends ReactState<any>>(
+    this: NewableDependencyKey<[], Instance>,
+  ): Instance {
+    const host = useDependencyHost();
+    const state = useConstant(() => host.new(this));
+    useBehaviorSubjectValue(state);
+    return state;
+  }
+
   #draft: Draft<readonly [State]> | undefined;
 
   constructor(initialState: State) {
@@ -51,9 +61,7 @@ export interface StateDefinition<State> {
   readonly state: State;
 }
 
-export function defineState<State>(
-  definition: StateDefinition<State>,
-): () => ReactState<State> {
+export function defineState<State>(definition: StateDefinition<State>) {
   const { hoist, state: initialState } = definition;
 
   @Hoist(hoist)
@@ -64,10 +72,5 @@ export function defineState<State>(
     }
   }
 
-  return function useState(): ReactState<State> {
-    const host = useDependencyHost();
-    const state = useConstant(() => host.new(SpecifyReactState));
-    useBehaviorSubjectValue(state);
-    return state;
-  };
+  return SpecifyReactState;
 }
