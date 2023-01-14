@@ -6,6 +6,7 @@
  * @module
  */
 
+import { assert } from "std/testing/asserts.ts";
 import { emplaceMap } from "../tools/emplace.ts";
 import * as deps from "./dependency.ts";
 
@@ -65,7 +66,7 @@ export interface DependencyContainer {
   readonly createRoot: <Params extends AnyParams, Value>(
     key: NewableDependencyKey<Params, Value>,
     ...params: Params
-  ) => Value;
+  ) => DependencyRootHost<Value>;
 }
 
 export interface DependencyHost {
@@ -79,6 +80,14 @@ export interface DependencyHost {
   ) => Value;
   readonly revoke: <Params extends AnyParams, Value>(
     key: DependencyKey<Params, Value>,
+  ) => void;
+}
+
+export interface DependencyRootHost<RootValue> extends DependencyHost {
+  readonly deref: () => RootValue;
+  readonly enforce: <Params extends AnyParams, Value>(
+    key: DependencyKey<Params, Value>,
+    value: Value,
   ) => void;
 }
 
@@ -108,7 +117,9 @@ export function createDependencyContainer(): DependencyContainer {
     },
     createRoot(key, ...params) {
       const load = createNewableDependencyLoader(key, params);
-      return new deps.Dependency({ load, scope: key }).value;
+      const descriptor = createDependencyDescriptor(key, load);
+      const dependency = new deps.Dependency(descriptor);
+      return createDependencyRootHost(dependency);
     },
   };
 
@@ -128,6 +139,25 @@ export function createDependencyContainer(): DependencyContainer {
       },
       revoke(key) {
         dependency.unlink(key);
+      },
+    };
+  }
+
+  function createDependencyRootHost<RootValue>(
+    dependency: Dependency<Any, Any>,
+  ): DependencyRootHost<RootValue> {
+    return {
+      ...createDependencyHost(dependency),
+      deref() {
+        return dependency.value;
+      },
+      enforce(key, value) {
+        const descriptor = createDependencyDescriptor(key, () => value);
+        const child = dependency.link(descriptor);
+        assert(
+          Object.is(child.value, value),
+          "Existing dependency value does not equal to the given one",
+        );
       },
     };
   }
