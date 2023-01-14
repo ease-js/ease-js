@@ -7,23 +7,22 @@ import { useConstant } from "../tools/memo/use-constant.ts";
 import { useDependencyHost } from "./context.ts";
 
 // deno-lint-ignore no-explicit-any
-export type AnyModelState = { readonly [key: string | number]: any };
+type AnyState = { readonly [key: PropertyKey]: any };
 
-export abstract class Model<State extends AnyModelState>
-  extends BehaviorSubject<State> {
+export abstract class Model<State extends AnyState> {
   // deno-lint-ignore no-explicit-any
-  static useModel<T extends Model<any>>(
-    this: NewableDependencyKey<[], T>,
-  ): [state: T["value"], model: T] {
+  static useModel<Instance extends Model<any>>(
+    this: NewableDependencyKey<[], Instance>,
+  ): [state: Instance["state"], model: Instance] {
     const host = useDependencyHost();
     const model = useConstant(() => host.new(this));
 
     const getSnapshot = useConstant(() => {
-      return (): T["value"] => model.getValue();
+      return (): Instance["state"] => model.state;
     });
     const subscribe = useConstant(() => {
       return (onChange: () => void): () => void => {
-        const subscription = model.subscribe(onChange);
+        const subscription = model.#subject.subscribe(onChange);
         return () => subscription.unsubscribe();
       };
     });
@@ -32,33 +31,36 @@ export abstract class Model<State extends AnyModelState>
     return [state, model];
   }
 
-  #draft: Draft<State> | null = null;
+  #draft: Draft<State> | undefined;
+  #_subject: BehaviorSubject<State> | undefined;
+
+  abstract readonly initialState: State;
+
+  get #subject(): BehaviorSubject<State> {
+    return this.#_subject ??= new BehaviorSubject(this.initialState);
+  }
 
   get draft(): Draft<State> {
-    if (this.#draft === null) this.#draft = createDraft(this.getValue());
-    return this.#draft;
+    return this.#draft ??= createDraft(this.state);
+  }
+
+  get state(): State {
+    return this.#subject.getValue();
+  }
+  set state(value: State) {
+    this.#finishDraft();
+    this.#subject.next(value);
   }
 
   commit(): void {
     const next = this.#finishDraft();
-    if (next !== null && !Object.is(this.getValue(), next)) {
-      this.next(next);
-    }
+    if (next !== undefined) this.state = next;
   }
 
-  complete(): void {
-    this.#finishDraft();
-    super.complete();
-  }
-
-  next(value: State): void {
-    this.#finishDraft();
-    super.next(value);
-  }
-
-  #finishDraft(): State | null {
+  #finishDraft(): State | undefined {
     const draft = this.#draft;
-    this.#draft = null;
-    return draft === null ? null : finishDraft(draft) as State;
+    if (draft === undefined) return;
+    this.#draft = undefined;
+    return finishDraft(draft) as State;
   }
 }
