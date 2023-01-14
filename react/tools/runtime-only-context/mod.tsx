@@ -6,24 +6,29 @@ export interface RuntimeOnlyContextProviderProps<Value> {
   value: Value;
 }
 
+export interface RuntimeOnlyContextProvider<Value> {
+  (props: RuntimeOnlyContextProviderProps<Value>): React.ReactElement;
+  displayName?: string;
+}
+
 /**
  * 创建没有 defaultValue 的 Context 。在调用 useContext() 读取 Context 时，如果当前组件不在 Provider 下，则直接抛出错误。
  */
 export function createRuntimeOnlyContext<Value>(
   name?: string | false,
-): [
-  useContext: () => Value,
-  Provider: (
-    props: RuntimeOnlyContextProviderProps<Value>,
-  ) => React.ReactElement,
-] {
+): [useContext: () => Value, Provider: RuntimeOnlyContextProvider<Value>] {
   const displayName = name || "Anonymous";
   const Context = React.createContext<readonly [Value] | null>(null);
-  Context.displayName = displayName;
 
-  const Provider = function RuntimeOnlyContextProvider(
-    props: RuntimeOnlyContextProviderProps<Value>,
-  ): React.ReactElement {
+  const useContext: () => Value = () => {
+    const value = React.useContext(Context);
+    assert(
+      value,
+      `Read runtime only context failed, please ensure the provider of "${displayName}" has been mounted`,
+    );
+    return value[0];
+  };
+  const Provider: RuntimeOnlyContextProvider<Value> = (props) => {
     const { children, value } = props;
     const ref = React.useRef<readonly [Value]>();
 
@@ -34,14 +39,8 @@ export function createRuntimeOnlyContext<Value>(
     return <Context.Provider value={ref.current}>{children}</Context.Provider>;
   };
 
-  const useContext = function useRuntimeOnlyContext(): Value {
-    const value = React.useContext(Context);
-    assert(
-      value,
-      `Read runtime only context failed, please ensure the provider of "${displayName}" has been mounted`,
-    );
-    return value[0];
-  };
+  Context.displayName = displayName;
+  Provider.displayName = `${displayName}Provider`;
 
   return [useContext, Provider];
 }
