@@ -46,4 +46,11 @@ export abstract class Model<State extends { readonly [key: string]: any }>
       if (!Object.is(this.getValue(), value)) this.next(value);
     }
   }
+
+  next(value: State) {
+    const draft = this.#draft;
+    this.#draft = undefined;
+    if (draft) finishDraft(draft);
+    super.next(value);
+  }
 }
