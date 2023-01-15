@@ -3,21 +3,8 @@ import { createDraft, finishDraft } from "immer";
 import { BehaviorSubject } from "rxjs";
 import type { DependencyScope, NewableDependencyKey } from "../../core.ts";
 import { Hoist, Scope } from "../../core.ts";
-import { useConstant } from "../tools/memo/use-constant.ts";
-import { useBehaviorSubjectValue } from "../tools/rxjs/use-behavior-subject-value.ts";
-import { useDependencyHost } from "./context.ts";
 
 export class ReactState<State> extends BehaviorSubject<State> {
-  // deno-lint-ignore no-explicit-any
-  static useState<Instance extends ReactState<any>>(
-    this: NewableDependencyKey<[], Instance>,
-  ): Instance {
-    const host = useDependencyHost();
-    const state = useConstant(() => host.new(this));
-    useBehaviorSubjectValue(state);
-    return state;
-  }
-
   #draft: Draft<readonly [State]> | undefined;
 
   constructor(initialState: State) {
@@ -56,21 +43,28 @@ export class ReactState<State> extends BehaviorSubject<State> {
   }
 }
 
+export interface DefinedReactStateClass<State>
+  extends NewableDependencyKey<[], ReactState<State>> {
+  prototype: ReactState<State>;
+}
+
 export interface StateDefinition<State> {
   readonly hoist?: DependencyScope | boolean;
   readonly state: State;
 }
 
-export function defineState<State>(definition: StateDefinition<State>) {
+export function defineState<State>(
+  definition: StateDefinition<State>,
+): DefinedReactStateClass<State> {
   const { hoist, state: initialState } = definition;
 
   @Hoist(hoist)
   @Scope(ReactState)
-  class SpecifyReactState extends ReactState<State> {
+  class DefinedReactState extends ReactState<State> {
     constructor() {
       super(initialState);
     }
   }
 
-  return SpecifyReactState;
+  return DefinedReactState;
 }
