@@ -31,8 +31,8 @@ type DependencyKey<Params extends AnyParams, Value> =
   | CallableDependencyKey<Params, Value>
   | NewableDependencyKey<Params, Value>;
 type DependencyScope =
-  | ((...params: Any) => Any)
-  | (new (...params: Any) => Any);
+  | CallableFunction
+  | NewableFunction;
 
 type CallableDependencyKey<Params extends AnyParams, Value> = (
   host: DependencyHost,

@@ -211,6 +211,10 @@ export class Dependency<Key, Scope, Value = unknown> {
     return this.#value();
   }
 
+  get [Symbol.toStringTag](): string {
+    return "Dependency";
+  }
+
   /**
    * 加载依赖。
    */
