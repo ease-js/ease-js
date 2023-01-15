@@ -1,56 +1,59 @@
-import type {
-  DependencyHost,
-  DependencyScope,
-  NewableDependencyKey,
-} from "../../core.ts";
+import type { DependencyScope, NewableDependencyKey } from "../../core.ts";
 import { Hoist, Scope } from "../../core.ts";
-import { DefinedReactStateClass, ReactState } from "./state.ts";
 
-export abstract class ReactModel {
+export abstract class ReactModel<Actions> {
+  readonly #actions: Actions;
+
+  constructor(actions: Actions) {
+    this.#actions = actions;
+  }
+
+  get actions(): Actions {
+    return this.#actions;
+  }
+
   get [Symbol.toStringTag](): string {
     return "ReactModel";
   }
 }
 
-export interface DefinedReactModelClass<Actions, State>
-  extends NewableDependencyKey<[], DefinedReactModelInstance<Actions, State>> {
-  prototype: DefinedReactModelInstance<Actions, State>;
+export interface DefinedReactModelClass<Actions>
+  extends NewableDependencyKey<[], DefinedReactModelInstance<Actions>> {
+  prototype: DefinedReactModelInstance<Actions>;
 }
 
-export interface DefinedReactModelInstance<Actions, State> extends ReactModel {
-  get actions(): Actions;
-  get state(): ReactState<State>;
-}
+export type DefinedReactModelInstance<Actions> = ReactModel<Actions>;
 
-export interface ModelDefinition<Actions, State> {
-  readonly actions: (state: ReactState<State>) => Actions;
+export interface ModelDefinition<Actions> {
   readonly hoist?: DependencyScope | boolean;
-  readonly state: DefinedReactStateClass<State>;
+  readonly init: () => Actions;
 }
 
-export function defineModel<Actions, State>(
-  definition: ModelDefinition<Actions, State>,
-): DefinedReactModelClass<Actions, State> {
-  const { actions, hoist, state } = definition;
+// type ValueOfDependencyKeys<
+//   // deno-lint-ignore no-explicit-any
+//   Keys extends readonly DependencyKey<[], any>[],
+//   // deno-lint-ignore no-explicit-any
+//   Result extends any[] = [],
+// > = Keys extends readonly [infer Key, ...infer Rest]
+//   // deno-lint-ignore no-explicit-any
+//   ? Rest extends readonly DependencyKey<[], any>[]
+//     // deno-lint-ignore no-explicit-any
+//     ? Key extends DependencyKey<[], any>
+//       ? ValueOfDependencyKeys<Rest, [...Result, ValueOfDependencyKey<Key>]>
+//     : Result
+//   : Result
+//   : Result;
+
+export function defineModel<Actions>(
+  definition: ModelDefinition<Actions>,
+): DefinedReactModelClass<Actions> {
+  const { hoist, init } = definition;
 
   @Hoist(hoist)
   @Scope(ReactModel)
-  class DefinedReactModel extends ReactModel {
-    readonly #actions: Actions;
-    readonly #state: ReactState<State>;
-
-    constructor(host: DependencyHost) {
-      super();
-      this.#state = host.new(state);
-      this.#actions = actions(this.#state);
-    }
-
-    get actions(): Actions {
-      return this.#actions;
-    }
-
-    get state(): ReactState<State> {
-      return this.#state;
+  class DefinedReactModel extends ReactModel<Actions> {
+    constructor() {
+      super(init());
     }
   }
 
