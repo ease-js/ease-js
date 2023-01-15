@@ -48,11 +48,18 @@ type PartialDependencyDescriptor<Params extends AnyParams, Value> = Pick<
   "hoist" | "scope"
 >;
 
+type ParametersOfDependencyKey<Key extends DependencyKey<Any, Any>> =
+  Key extends Dependency<infer Params, Any> ? Params : never;
+type ValueOfDependencyKey<Key extends DependencyKey<Any, Any>> = Key extends
+  Dependency<Any, infer Value> ? Value : never;
+
 export type {
   CallableDependencyKey,
   DependencyKey,
   DependencyScope,
   NewableDependencyKey,
+  ParametersOfDependencyKey,
+  ValueOfDependencyKey,
   WeakDependencyHandle,
 };
 

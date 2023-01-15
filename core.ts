@@ -7,6 +7,8 @@ export type {
   DependencyRootHost,
   DependencyScope,
   NewableDependencyKey,
+  ParametersOfDependencyKey,
+  ValueOfDependencyKey,
   WeakDependencyHandle,
 } from "./core/ioc/container.ts";
 
