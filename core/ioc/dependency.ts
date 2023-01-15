@@ -170,26 +170,26 @@ export class Dependency<Key, Scope, Value = unknown> {
    */
   #value: (() => Value) | undefined;
 
-  /**
-   * 当前节点是否为根节点。
-   */
-  get #isRoot(): boolean {
-    // 没有被回收 && 不存在 #parent
-    return !revoke.has(this) && !this.#parent;
-  }
-
   constructor(init: DependencyInit<Key, Scope, Value>) {
     const { load, scope } = init;
     assert(typeof load === "function");
 
     this.#scope = scope ?? NeverScope;
     this.#value = () => {
-      // 在调用 value 的过程中，再次访问 dependency.value 不会重复调用此函数
+      // 在调用 this.#value() 的过程中，再次访问 dependency.value 不会重复调用此函数
       this.#value = undefined;
       const value = load(this);
       this.#value = () => value;
       return value;
     };
+  }
+
+  /**
+   * 当前节点是否为根节点。
+   */
+  get #isRoot(): boolean {
+    // 没有被回收 && 不存在 #parent
+    return !revoke.has(this) && !this.#parent;
   }
 
   /**
@@ -215,7 +215,7 @@ export class Dependency<Key, Scope, Value = unknown> {
     this.#references ??= new Map();
     return emplaceMap(this.#references, key, {
       insert: () => {
-        const reference = this.#lookupShareScope(descriptor.hoist)
+        const reference = this.#resolveHoistTarget(descriptor.hoist)
           .#install(key, descriptor);
         reference.#referrers ??= new Set();
         reference.#referrers.add(this);
@@ -320,26 +320,25 @@ export class Dependency<Key, Scope, Value = unknown> {
   /**
    * 查找可用的共享范围。
    */
-  #lookupShareScope(
+  #resolveHoistTarget(
     hoist: DependencyHoistConfig<Scope> | boolean | undefined,
   ): Dependency<Key, Scope> {
-    if (!hoist) return this;
+    // deno-lint-ignore no-this-alias
+    let target: Dependency<Key, Scope> = this;
 
-    const { is } = Object;
-    const { acceptRoot = true, scope } = hoist === true
-      ? { acceptRoot: true, scope: NeverScope }
-      : hoist;
-    let ancestor: Dependency<Key, Scope> | undefined;
-    for (
-      ancestor = this;
-      !is(ancestor.#scope, scope);
-      ancestor = ancestor.#parent[0]
-    ) {
-      if (!ancestor.#parent) {
-        if (acceptRoot) return ancestor;
-        throw new Error("No matching shareScope found");
+    if (hoist === true) {
+      while (target.#parent) target = target.#parent[0];
+    } else if (hoist) {
+      const { is } = Object;
+      const { acceptRoot = true, scope } = hoist;
+      for (; !is(target.#scope, scope); target = target.#parent[0]) {
+        if (!target.#parent) {
+          if (acceptRoot) break;
+          else throw new Error("No matching shareScope found");
+        }
       }
     }
-    return ancestor;
+
+    return target;
   }
 }
