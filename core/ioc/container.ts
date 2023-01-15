@@ -8,6 +8,7 @@
 
 import { assert } from "std/testing/asserts.ts";
 import { emplaceMap } from "../tools/emplace.ts";
+import type { WeakDependencyHandle } from "./dependency.ts";
 import * as deps from "./dependency.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -52,6 +53,7 @@ export type {
   DependencyKey,
   DependencyScope,
   NewableDependencyKey,
+  WeakDependencyHandle,
 };
 
 export interface DependencyContainer {
@@ -82,6 +84,10 @@ export interface DependencyHost {
   readonly revoke: <Params extends AnyParams, Value>(
     key: DependencyKey<Params, Value>,
   ) => void;
+  readonly weaken: <Params extends AnyParams, Value>(
+    key: DependencyKey<Params, Value>,
+    handle: WeakDependencyHandle | null,
+  ) => void;
 }
 
 export interface DependencyRootHost<RootValue> extends DependencyHost {
@@ -105,14 +111,16 @@ export function createDependencyContainer(): DependencyContainer {
     Hoist(scope = true) {
       return function decorator(key) {
         updateDependencyDescriptor(key, (descriptor) => {
-          descriptor.hoist = typeof scope === "boolean" ? scope : { scope };
+          if (scope) descriptor.hoist = scope === true ? scope : { scope };
+          else delete descriptor.hoist;
         });
       };
     },
     Scope(scope) {
       return function decorator(key) {
         updateDependencyDescriptor(key, (descriptor) => {
-          descriptor.scope = scope;
+          if (scope) descriptor.scope = scope;
+          else delete descriptor.scope;
         });
       };
     },
@@ -140,6 +148,9 @@ export function createDependencyContainer(): DependencyContainer {
       },
       revoke(key) {
         dependency.unlink(key);
+      },
+      weaken(key, handle) {
+        dependency.weaken(key, handle);
       },
     };
   }

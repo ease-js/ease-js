@@ -91,7 +91,7 @@ const NeverScope = Symbol("NeverScope");
 
 /**
  * 对一项依赖的描述，相对于仅包含依赖自身信息的 `interface DependencyInit` ，此接口还包含
- * `shareScope` 等与外部关系的限制条件的描述。
+ * `hoist` 等与外部关系的限制条件的描述。
  */
 export interface DependencyDescriptor<Key, Scope, Value = unknown>
   extends DependencyInit<Key, Scope, Value> {
@@ -142,6 +142,12 @@ export interface DependencyInit<Key, Scope, Value = unknown> {
 }
 
 /**
+ * 弱引用依赖的句柄。
+ */
+// deno-lint-ignore ban-types
+export type WeakDependencyHandle = object;
+
+/**
  * 用于管理依赖关系的通用类。
  */
 export class Dependency<Key, Scope, Value = unknown> {
@@ -169,6 +175,10 @@ export class Dependency<Key, Scope, Value = unknown> {
    * 当前节点保存的值。
    */
   #value: (() => Value) | undefined;
+  /**
+   * 弱引用依赖的注册中心。
+   */
+  #weak: FinalizationRegistry<Key> | undefined;
 
   constructor(init: DependencyInit<Key, Scope, Value>) {
     const { load, scope } = init;
@@ -234,6 +244,7 @@ export class Dependency<Key, Scope, Value = unknown> {
     if (!startNode) return;
 
     this.#references!.delete(key);
+    this.#weak?.unregister(startNode);
     startNode.#referrers?.delete(this);
     if (!startNode.#isUnreachable()) return;
 
@@ -254,6 +265,7 @@ export class Dependency<Key, Scope, Value = unknown> {
         if (dep.#references) {
           const unreachable: Dependency<Key, Scope>[] = [];
           for (const reference of dep.#references.values()) {
+            dep.#weak?.unregister(reference);
             reference.#referrers?.delete(dep);
             if (reference.#isUnreachable()) unreachable.push(reference);
           }
@@ -266,8 +278,29 @@ export class Dependency<Key, Scope, Value = unknown> {
         dep.#referrers = undefined;
         dep.#scope = NeverScope;
         dep.#value = undefined;
+        dep.#weak = undefined;
       }
     } while ((iterable = pending.pop()));
+  }
+
+  /**
+   * 将已存在的依赖转为弱引用，如果传入 `null` 则恢复为强引用。
+   */
+  weaken(key: Key, handle: WeakDependencyHandle | null): void {
+    revoke.assert(this);
+
+    const reference = this.#references?.get(key);
+    if (!reference) return;
+
+    // 移除上一次注册的 handle
+    this.#weak?.unregister(reference);
+
+    if (handle) {
+      this.#weak ??= new FinalizationRegistry((heldKey) => {
+        this.unlink(heldKey);
+      });
+      this.#weak.register(handle, key, reference);
+    }
   }
 
   /**
