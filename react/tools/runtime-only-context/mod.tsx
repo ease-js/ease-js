@@ -11,12 +11,17 @@ export interface RuntimeOnlyContextProvider<Value> {
   displayName?: string;
 }
 
+export type RuntimeOnlyContext<Value> = [
+  useContext: () => Value,
+  Provider: RuntimeOnlyContextProvider<Value>,
+];
+
 /**
  * 创建没有 defaultValue 的 Context 。在调用 useContext() 读取 Context 时，如果当前组件不在 Provider 下，则直接抛出错误。
  */
 export function createRuntimeOnlyContext<Value>(
   name?: string | false,
-): [useContext: () => Value, Provider: RuntimeOnlyContextProvider<Value>] {
+): RuntimeOnlyContext<Value> {
   const displayName = name || "Anonymous";
   const Context = React.createContext<readonly [Value] | null>(null);
 

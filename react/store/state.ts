@@ -1,11 +1,9 @@
-import type { Draft } from "immer";
+import type { Draft, Immutable } from "immer";
 import { produce } from "immer";
 import { BehaviorSubject } from "rxjs";
-import type { DependencyScope, NewableDependencyKey } from "../../core.ts";
-import { Hoist, Scope } from "../../core.ts";
 
-export abstract class ReactState<State> extends BehaviorSubject<State> {
-  constructor(initialState: State) {
+export class ReactState<State> extends BehaviorSubject<Immutable<State>> {
+  constructor(initialState: Immutable<State>) {
     super(initialState);
   }
 
@@ -18,30 +16,19 @@ export abstract class ReactState<State> extends BehaviorSubject<State> {
   }
 }
 
-export interface DefinedReactStateClass<State>
-  extends NewableDependencyKey<[], DefinedReactStateInstance<State>> {
+export interface DefinedReactStateClass<State> {
+  new (): DefinedReactStateInstance<State>;
   prototype: DefinedReactStateInstance<State>;
 }
 
 export type DefinedReactStateInstance<State> = ReactState<State>;
 
-export interface StateDefinition<State> {
-  readonly hoist?: DependencyScope | boolean;
-  readonly init: State;
-}
-
 export function defineState<State>(
-  definition: StateDefinition<State>,
+  init: Immutable<State>,
 ): DefinedReactStateClass<State> {
-  const { hoist, init } = definition;
-
-  @Hoist(hoist)
-  @Scope(ReactState)
-  class DefinedReactState extends ReactState<State> {
+  return class DefinedReactState extends ReactState<State> {
     constructor() {
       super(init);
     }
-  }
-
-  return DefinedReactState;
+  };
 }
