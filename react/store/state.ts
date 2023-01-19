@@ -1,8 +1,79 @@
+import React from "react";
 import type { Draft, Immutable } from "immer";
 import { produce } from "immer";
 import { BehaviorSubject } from "rxjs";
+import {
+  BehaviorSubjectValueSelector,
+  useBehaviorSubjectValue,
+  useBehaviorSubjectValueWithSelector,
+} from "../tools/rxjs/use-behavior-subject-value.ts";
+import type { ReactStoreConstructor } from "./container.tsx";
+import { ReactStoreContainer } from "./container.tsx";
+
+// deno-lint-ignore no-explicit-any
+type Any = any;
+
+export interface DefinedReactStateClass<State>
+  extends
+    ReactStoreConstructor<DefinedReactStateInstance<State>>,
+    Omit<typeof ReactState, "prototype"> {
+  prototype: DefinedReactStateInstance<State>;
+}
+
+export type DefinedReactStateInstance<State> = ReactState<State>;
+
+export type StateOfReactStateInstance<Instance extends ReactState<Any>> =
+  Instance extends ReactState<infer State> ? State : never;
 
 export class ReactState<State> extends BehaviorSubject<Immutable<State>> {
+  static clone<Class extends ReactStoreConstructor<Any>>(this: Class): Class {
+    return ReactStoreContainer.clone(this);
+  }
+
+  static useLocalState<Instance extends ReactState<Any>>(
+    this: ReactStoreConstructor<Instance>,
+  ): [
+    state: Immutable<StateOfReactStateInstance<Instance>>,
+    instance: Instance,
+  ] {
+    const instance = ReactStoreContainer.useClone(this);
+    return [useBehaviorSubjectValue(instance), instance];
+  }
+
+  static useState<Instance extends ReactState<Any>>(
+    this: ReactStoreConstructor<Instance>,
+  ): [
+    state: Immutable<StateOfReactStateInstance<Instance>>,
+    instance: Instance,
+  ];
+  static useState<Instance extends ReactState<Any>, Selection>(
+    this: ReactStoreConstructor<Instance>,
+    selector: BehaviorSubjectValueSelector<
+      Immutable<StateOfReactStateInstance<Instance>>,
+      Selection
+    >,
+    deps?: React.DependencyList,
+  ): [state: Selection, instance: Instance];
+  static useState<Instance extends ReactState<Any>, Selection>(
+    this: ReactStoreConstructor<Instance>,
+    selector?: BehaviorSubjectValueSelector<
+      Immutable<StateOfReactStateInstance<Instance>>,
+      Selection
+    >,
+    deps?: React.DependencyList,
+  ): [
+    state: Immutable<StateOfReactStateInstance<Instance>> | Selection,
+    instance: Instance,
+  ] {
+    const instance = ReactStoreContainer.useInstance(this);
+    return [
+      selector
+        ? useBehaviorSubjectValueWithSelector(instance, selector, deps)
+        : useBehaviorSubjectValue(instance),
+      instance,
+    ];
+  }
+
   constructor(initialState: Immutable<State>) {
     super(initialState);
   }
@@ -15,13 +86,6 @@ export class ReactState<State> extends BehaviorSubject<Immutable<State>> {
     this.next(produce(this.getValue(), recipe));
   }
 }
-
-export interface DefinedReactStateClass<State> {
-  new (): DefinedReactStateInstance<State>;
-  prototype: DefinedReactStateInstance<State>;
-}
-
-export type DefinedReactStateInstance<State> = ReactState<State>;
 
 export function defineState<State>(
   init: Immutable<State>,

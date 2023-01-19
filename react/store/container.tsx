@@ -67,7 +67,7 @@ function createReactStoreContainer(): ReactStoreContainer {
 
   const container: ReactStoreContainer = {
     KeepAlive(Store) {
-      emplaceStoreDescriptor(Store).keepAlive = true;
+      emplaceReactStoreDescriptor(Store).keepAlive = true;
     },
     Provider(props) {
       const { children, init } = props;
@@ -90,7 +90,7 @@ function createReactStoreContainer(): ReactStoreContainer {
     useInstance(Store) {
       const root = useRootHost();
       return useConstant(() => {
-        const { constructor, keepAlive } = emplaceStoreDescriptor(Store);
+        const { constructor, keepAlive } = emplaceReactStoreDescriptor(Store);
         if (keepAlive) return [root.new(constructor)] as const;
 
         const handle: WeakDependencyHandle = {};
@@ -115,7 +115,7 @@ function createReactStoreContainer(): ReactStoreContainer {
     return SubClass;
   }
 
-  function emplaceStoreDescriptor<Instance>(
+  function emplaceReactStoreDescriptor<Instance>(
     Store: ReactStoreConstructor<Instance>,
   ): ReactStoreDescriptor<Instance> {
     return emplaceMap(descriptors, Store, {
