@@ -2,7 +2,7 @@ import type {
   ReactStoreCreator,
   ReactStoreCreatorMixins,
 } from "./container.tsx";
-import { ReactStoreContainer } from "./container.tsx";
+import { store } from "./container.tsx";
 
 // deno-lint-ignore no-explicit-any
 type AnyStores = readonly any[];
@@ -27,7 +27,7 @@ export function defineActions<Stores extends AnyStores>(
         return Reflect.apply(init, null, deps.map((dep) => host.call(dep)));
       };
 
-      return ReactStoreContainer.mixin(createActions);
+      return store.mixin(createActions);
     },
   };
 }

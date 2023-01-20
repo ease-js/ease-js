@@ -12,7 +12,7 @@ import type {
   ReactStoreCreator,
   ReactStoreCreatorMixins,
 } from "./container.tsx";
-import { ReactStoreContainer } from "./container.tsx";
+import { store } from "./container.tsx";
 
 export interface ReactStateCreator<State>
   extends
@@ -64,7 +64,7 @@ export class ReactState<State> extends BehaviorSubject<Immutable<State>> {
 export function defineState<State>(
   init: Immutable<State>,
 ): ReactStateCreator<State> {
-  return Object.assign(ReactStoreContainer.mixin(createReactState), {
+  return Object.assign(store.mixin(createReactState), {
     useLocalState,
     useState,
   });

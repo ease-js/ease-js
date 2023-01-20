@@ -10,7 +10,7 @@ import type {
   ReactStoreCreator,
   ReactStoreCreatorMixins,
 } from "./container.tsx";
-import { ReactStoreContainer } from "./container.tsx";
+import { store } from "./container.tsx";
 
 // deno-lint-ignore no-explicit-any
 type AnyCombination = readonly any[];
@@ -68,7 +68,7 @@ export function defineCombination<Combination extends AnyCombination>(
       return dest;
     };
 
-  return Object.assign(ReactStoreContainer.mixin(createCombination), {
+  return Object.assign(store.mixin(createCombination), {
     useCombination,
   });
 }

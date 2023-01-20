@@ -10,6 +10,13 @@ import { emplaceMap } from "../../core/tools/emplace.ts";
 import { useConstant } from "../tools/memo/use-constant.ts";
 import { createRuntimeOnlyContext } from "../tools/runtime-only-context/mod.tsx";
 
+interface ReactStoreCloneOptions {
+  /**
+   * @default true
+   */
+  readonly weak?: boolean;
+}
+
 interface ReactStoreContainer {
   readonly Provider: ReactStoreRootProvider;
   // deno-lint-ignore no-explicit-any
@@ -19,6 +26,7 @@ interface ReactStoreContainer {
   // deno-lint-ignore no-explicit-any
   readonly clone: <Creator extends ReactStoreCreator<any>>(
     create: Creator,
+    options?: ReactStoreCloneOptions,
   ) => Creator;
   // deno-lint-ignore no-explicit-any
   readonly mixin: <Creator extends ReactStoreCreator<any>>(
@@ -28,19 +36,22 @@ interface ReactStoreContainer {
   readonly useInstance: <Value>(create: ReactStoreCreator<Value>) => Value;
 }
 
-interface ReactStoreDescriptor<Value> {
-  original?: ReactStoreCreator<Value>;
-  weak?: boolean;
-}
-
 // deno-lint-ignore no-empty-interface
 interface ReactStoreCreator<Value> extends CallableDependencyKey<[], Value> {}
 
 interface ReactStoreCreatorMixins {
   // deno-lint-ignore no-explicit-any
-  clone<Creator extends ReactStoreCreator<any>>(this: Creator): Creator;
+  clone<Creator extends ReactStoreCreator<any>>(
+    this: Creator,
+    options?: ReactStoreCloneOptions,
+  ): Creator;
   useClone<Value>(this: ReactStoreCreator<Value>): Value;
   useInstance<Value>(this: ReactStoreCreator<Value>): Value;
+}
+
+interface ReactStoreDescriptor<Value> {
+  original?: ReactStoreCreator<Value>;
+  weak?: boolean;
 }
 
 interface ReactStoreRootProvider {
@@ -53,6 +64,8 @@ interface ReactStoreRootProviderProps {
 }
 
 export type {
+  ReactStoreCloneOptions,
+  ReactStoreContainer,
   ReactStoreCreator,
   ReactStoreCreatorMixins,
   ReactStoreRootProvider,
@@ -63,7 +76,7 @@ export class ReactStoreRoot {
   // nothing
 }
 
-export const ReactStoreContainer = createReactStoreContainer();
+export const store = createReactStoreContainer();
 
 function createReactStoreContainer(): ReactStoreContainer {
   const descriptors = new WeakMap<
@@ -81,8 +94,8 @@ function createReactStoreContainer(): ReactStoreContainer {
   });
 
   const mixins: ReactStoreCreatorMixins = {
-    clone() {
-      return container.clone(this);
+    clone(options) {
+      return container.clone(this, options);
     },
     useClone() {
       return container.useClone(this);
@@ -106,20 +119,19 @@ function createReactStoreContainer(): ReactStoreContainer {
       emplaceReactStoreDescriptor(create).weak = true;
       return create;
     },
-    clone(create) {
+    clone(create, options = {}) {
+      const { weak = true } = options;
       const original =
         (descriptors.get(create)?.original ?? create) as typeof create;
       const clone = new Proxy(original, {});
-      descriptors.set(clone, { original });
+      descriptors.set(clone, { original, weak });
       return clone;
     },
     mixin(create) {
       return Object.assign(create, mixins);
     },
     useClone(create) {
-      return container.useInstance(
-        useConstant(() => container.Weaken(container.clone(create))),
-      );
+      return container.useInstance(useConstant(() => container.clone(create)));
     },
     useInstance(create) {
       const root = useRootHost();
