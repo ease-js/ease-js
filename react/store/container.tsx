@@ -11,11 +11,11 @@ import { useConstant } from "../tools/memo/use-constant.ts";
 import { createRuntimeOnlyContext } from "../tools/runtime-only-context/mod.tsx";
 
 interface ReactStoreContainer {
+  readonly Provider: ReactStoreRootProvider;
   // deno-lint-ignore no-explicit-any
-  readonly KeepAlive: <Creator extends ReactStoreCreator<any>>(
+  readonly Weaken: <Creator extends ReactStoreCreator<any>>(
     create: Creator,
   ) => Creator;
-  readonly Provider: ReactStoreRootProvider;
   // deno-lint-ignore no-explicit-any
   readonly clone: <Creator extends ReactStoreCreator<any>>(
     create: Creator,
@@ -29,8 +29,8 @@ interface ReactStoreContainer {
 }
 
 interface ReactStoreDescriptor<Value> {
-  keepAlive?: boolean;
   original?: ReactStoreCreator<Value>;
+  weak?: boolean;
 }
 
 // deno-lint-ignore no-empty-interface
@@ -93,10 +93,6 @@ function createReactStoreContainer(): ReactStoreContainer {
   };
 
   const container: ReactStoreContainer = {
-    KeepAlive(create) {
-      emplaceReactStoreDescriptor(create).keepAlive = true;
-      return create;
-    },
     Provider(props) {
       const { children, create } = props;
       const root = useConstant(() => {
@@ -105,6 +101,10 @@ function createReactStoreContainer(): ReactStoreContainer {
         return host;
       });
       return <RootHostProvider value={root}>{children}</RootHostProvider>;
+    },
+    Weaken(create) {
+      emplaceReactStoreDescriptor(create).weak = true;
+      return create;
     },
     clone(create) {
       const original =
@@ -122,8 +122,8 @@ function createReactStoreContainer(): ReactStoreContainer {
     useInstance(create) {
       const root = useRootHost();
       return useConstant(() => {
-        const { keepAlive } = emplaceReactStoreDescriptor(create);
-        if (keepAlive) return [root.call(create)] as const;
+        const descriptor = emplaceReactStoreDescriptor(create);
+        if (!descriptor.weak) return [root.call(create)] as const;
 
         const handle: WeakDependencyHandle = {};
         const weakKey = (host: DependencyHost) => host;
