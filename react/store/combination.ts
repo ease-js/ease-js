@@ -32,13 +32,10 @@ export interface BehaviorSubjectCombinationCreator<Combination>
     BehaviorSubjectCombinationCreatorMixins {}
 
 export interface BehaviorSubjectCombinationCreatorMixins {
-  useLocalState<Result>(
+  useCombination<Result>(
     this: BehaviorSubjectCombinationCreator<Result>,
   ): Result;
-  useState<Result>(
-    this: BehaviorSubjectCombinationCreator<Result>,
-  ): Result;
-  useState<Result, Selection>(
+  useCombination<Result, Selection>(
     this: BehaviorSubjectCombinationCreator<Result>,
     selector: BehaviorSubjectValueSelector<Result, Selection>,
     deps?: React.DependencyList,
@@ -59,8 +56,7 @@ export function defineCombination<Combination extends AnyCombination>(
   | BehaviorSubjectCombinationCreator<Readonly<Combination>>
   | BehaviorSubjectCombinationCreator<unknown> {
   return Object.assign(ReactStoreContainer.mixin(createCombination), {
-    useLocalState,
-    useState,
+    useCombination,
   });
 
   function createCombination(): BehaviorSubject<unknown> {
@@ -78,21 +74,15 @@ export function defineCombination<Combination extends AnyCombination>(
   }
 }
 
-function useLocalState<Result>(
-  this: BehaviorSubjectCombinationCreator<Result>,
-): Result {
-  return useBehaviorSubjectValue(this.useClone());
-}
-
-function useState<Result>(
+function useCombination<Result>(
   this: BehaviorSubjectCombinationCreator<Result>,
 ): Result;
-function useState<Result, Selection>(
+function useCombination<Result, Selection>(
   this: BehaviorSubjectCombinationCreator<Result>,
   selector: BehaviorSubjectValueSelector<Result, Selection>,
   deps?: React.DependencyList,
 ): Selection;
-function useState<Result, Selection>(
+function useCombination<Result, Selection>(
   this: BehaviorSubjectCombinationCreator<Result>,
   selector?: BehaviorSubjectValueSelector<Result, Selection>,
   deps?: React.DependencyList,
