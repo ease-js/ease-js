@@ -64,14 +64,15 @@ export class ReactState<State> extends BehaviorSubject<Immutable<State>> {
 export function defineState<State>(
   init: Immutable<State>,
 ): ReactStateCreator<State> {
+  const createReactState: ReactStoreCreator<ReactState<State>> =
+    function createReactState() {
+      return new ReactState(init);
+    };
+
   return Object.assign(store.mixin(createReactState), {
     useLocalState,
     useState,
   });
-
-  function createReactState(): ReactState<State> {
-    return new ReactState(init);
-  }
 }
 
 function useLocalState<State>(this: ReactStateCreator<State>): [

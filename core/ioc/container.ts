@@ -37,6 +37,9 @@ type DependencyDescriptorDraft<Params extends AnyParams, Value> = Writable<
 type DependencyKey<Params extends AnyParams, Value> =
   | CallableDependencyKey<Params, Value>
   | NewableDependencyKey<Params, Value>;
+type DependencyKeyWithDestructor<Params extends AnyParams, Value> =
+  | CallableDependencyKeyWithDestructor<Params, Value>
+  | NewableDependencyKeyWithDestructor<Params, Value>;
 type DependencyScope =
   | CallableFunction
   | NewableFunction;
@@ -50,6 +53,7 @@ type ValueOfDependencyKey<Key extends AnyDependencyKey> = Key extends
 export type {
   DependencyDescriptor,
   DependencyKey,
+  DependencyKeyWithDestructor,
   DependencyScope,
   ParametersOfDependencyKey,
   ValueOfDependencyKey,
@@ -58,13 +62,14 @@ export type {
 
 export interface CallableDependencyKey<Params extends AnyParams, Value> {
   (host: DependencyHost, ...params: Params): Value;
-  [destructor]?: (value: Value) => void;
 }
 
-export interface NewableDependencyKey<Params extends AnyParams, Value> {
-  new (host: DependencyHost, ...params: Params): Value;
-  [destructor]?: (value: Value) => void;
-}
+export interface CallableDependencyKeyWithDestructor<
+  Params extends AnyParams,
+  Value,
+> extends
+  CallableDependencyKey<Params, Value>,
+  WithDependencyDestructor<Value> {}
 
 export interface DependencyContainer {
   /**
@@ -90,18 +95,18 @@ export interface DependencyContainerHost {
 
 export interface DependencyHost {
   readonly call: <Params extends AnyParams, Value>(
-    key: CallableDependencyKey<Params, Value>,
+    key: CallableDependencyKeyWithDestructor<Params, Value>,
     ...params: Params
   ) => Value;
   readonly new: <Params extends AnyParams, Value>(
-    key: NewableDependencyKey<Params, Value>,
+    key: NewableDependencyKeyWithDestructor<Params, Value>,
     ...params: Params
   ) => Value;
   readonly revoke: <Params extends AnyParams, Value>(
-    key: DependencyKey<Params, Value>,
+    key: DependencyKeyWithDestructor<Params, Value>,
   ) => void;
   readonly weaken: <Params extends AnyParams, Value>(
-    key: DependencyKey<Params, Value>,
+    key: DependencyKeyWithDestructor<Params, Value>,
     handle: WeakDependencyHandle | null,
   ) => void;
 }
@@ -109,9 +114,24 @@ export interface DependencyHost {
 export interface DependencyRootHost<RootValue> extends DependencyHost {
   readonly deref: () => RootValue;
   readonly enforce: <Params extends AnyParams, Value>(
-    key: DependencyKey<Params, Value>,
+    key: DependencyKeyWithDestructor<Params, Value>,
     value: Value,
   ) => void;
+}
+
+export interface NewableDependencyKey<Params extends AnyParams, Value> {
+  new (host: DependencyHost, ...params: Params): Value;
+}
+
+export interface NewableDependencyKeyWithDestructor<
+  Params extends AnyParams,
+  Value,
+> extends
+  NewableDependencyKey<Params, Value>,
+  WithDependencyDestructor<Value> {}
+
+export interface WithDependencyDestructor<Value> {
+  [destructor]?: (value: Value) => void;
 }
 
 /**
@@ -212,7 +232,7 @@ export function createDependencyContainer(
   }
 
   function createDependencyDescriptor<Params extends AnyParams, Value>(
-    key: DependencyKey<Params, Value>,
+    key: DependencyKeyWithDestructor<Params, Value>,
     load: (dependency: Dependency<Params, Value>) => Value,
   ): DependencyDescriptor<Params, Value> {
     const draft: DependencyDescriptorDraft<Params, Value> =

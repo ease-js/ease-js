@@ -10,6 +10,7 @@ import {
 import type {
   ReactStoreCreator,
   ReactStoreCreatorMixins,
+  ReactStoreCreatorWithDestructor,
 } from "./container.tsx";
 import { store } from "./container.tsx";
 
@@ -28,7 +29,7 @@ export type BehaviorSubjectStoreCreatorInputTuple<
 
 export interface CombinationDestinationCreator<Combination>
   extends
-    ReactStoreCreator<CombinationDestination<Combination>>,
+    ReactStoreCreatorWithDestructor<CombinationDestination<Combination>>,
     ReactStoreCreatorMixins,
     CombinationDestinationCreatorMixins {}
 
@@ -70,16 +71,17 @@ export function defineCombination<Combination extends AnyCombination>(
 ):
   | CombinationDestinationCreator<Readonly<Combination>>
   | CombinationDestinationCreator<unknown> {
-  const createCombination: ReactStoreCreator<CombinationDestination<unknown>> =
-    function createCombination(host) {
-      const sources = deps.map((dep): BehaviorSubject<unknown> => {
-        return host.call(dep);
-      });
-      const observable = selector
-        ? combineLatest(sources as ObservableInputTuple<Combination>, selector)
-        : combineLatest(sources);
-      return new CombinationDestination(observable);
-    };
+  const createCombination: ReactStoreCreatorWithDestructor<
+    CombinationDestination<unknown>
+  > = function createCombination(host) {
+    const sources = deps.map((dep): BehaviorSubject<unknown> => {
+      return host.call(dep);
+    });
+    const observable = selector
+      ? combineLatest(sources as ObservableInputTuple<Combination>, selector)
+      : combineLatest(sources);
+    return new CombinationDestination(observable);
+  };
   createCombination[destructor] = (destination) => destination.unsubscribe();
 
   return Object.assign(store.mixin(createCombination), {

@@ -4,6 +4,7 @@ import type {
   DependencyHost,
   DependencyRootHost,
   WeakDependencyHandle,
+  WithDependencyDestructor,
 } from "../../core.ts";
 import { createDependencyContainer } from "../../core.ts";
 import { emplaceMap } from "../../core/tools/emplace.ts";
@@ -36,8 +37,12 @@ interface ReactStoreContainer {
   readonly mixin: <Creator extends ReactStoreCreator<any>>(
     create: Creator,
   ) => Creator & ReactStoreCreatorMixins;
-  readonly useClone: <Value>(create: ReactStoreCreator<Value>) => Value;
-  readonly useInstance: <Value>(create: ReactStoreCreator<Value>) => Value;
+  readonly useClone: <Value>(
+    create: ReactStoreCreatorWithDestructor<Value>,
+  ) => Value;
+  readonly useInstance: <Value>(
+    create: ReactStoreCreatorWithDestructor<Value>,
+  ) => Value;
 }
 
 // deno-lint-ignore no-empty-interface
@@ -49,9 +54,12 @@ interface ReactStoreCreatorMixins {
     this: Creator,
     options?: ReactStoreCloneOptions,
   ): Creator;
-  useClone<Value>(this: ReactStoreCreator<Value>): Value;
-  useInstance<Value>(this: ReactStoreCreator<Value>): Value;
+  useClone<Value>(this: ReactStoreCreatorWithDestructor<Value>): Value;
+  useInstance<Value>(this: ReactStoreCreatorWithDestructor<Value>): Value;
 }
+
+interface ReactStoreCreatorWithDestructor<Value>
+  extends ReactStoreCreator<Value>, WithDependencyDestructor<Value> {}
 
 interface ReactStoreDecorateOptions {
   /**
@@ -79,6 +87,7 @@ export type {
   ReactStoreContainer,
   ReactStoreCreator,
   ReactStoreCreatorMixins,
+  ReactStoreCreatorWithDestructor,
   ReactStoreDecorateOptions,
   ReactStoreRootProvider,
   ReactStoreRootProviderProps,
