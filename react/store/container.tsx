@@ -1,8 +1,8 @@
 import React from "react";
 import type {
+  CallableDependencyKey,
   DependencyHost,
   DependencyRootHost,
-  NewableDependencyKey,
   WeakDependencyHandle,
 } from "../../core.ts";
 import { createDependencyContainer } from "../../core.ts";
@@ -10,29 +10,37 @@ import { emplaceMap } from "../../core/tools/emplace.ts";
 import { useConstant } from "../tools/memo/use-constant.ts";
 import { createRuntimeOnlyContext } from "../tools/runtime-only-context/mod.tsx";
 
-type ReactStoreConstructor<Instance> = NewableDependencyKey<[], Instance>;
-
 interface ReactStoreContainer {
   // deno-lint-ignore no-explicit-any
-  readonly KeepAlive: <Constructor extends ReactStoreConstructor<any>>(
-    Store: Constructor,
-  ) => void;
+  readonly KeepAlive: <Creator extends ReactStoreCreator<any>>(
+    create: Creator,
+  ) => Creator;
   readonly Provider: ReactStoreRootProvider;
   // deno-lint-ignore no-explicit-any
-  readonly clone: <Constructor extends ReactStoreConstructor<any>>(
-    Store: Constructor,
-  ) => Constructor;
-  readonly useClone: <Instance>(
-    Store: ReactStoreConstructor<Instance>,
-  ) => Instance;
-  readonly useInstance: <Instance>(
-    Store: ReactStoreConstructor<Instance>,
-  ) => Instance;
+  readonly clone: <Creator extends ReactStoreCreator<any>>(
+    create: Creator,
+  ) => Creator;
+  // deno-lint-ignore no-explicit-any
+  readonly mixin: <Creator extends ReactStoreCreator<any>>(
+    create: Creator,
+  ) => Creator & ReactStoreCreatorMixins;
+  readonly useClone: <Value>(create: ReactStoreCreator<Value>) => Value;
+  readonly useInstance: <Value>(create: ReactStoreCreator<Value>) => Value;
 }
 
-interface ReactStoreDescriptor<Instance> {
+interface ReactStoreDescriptor<Value> {
   keepAlive?: boolean;
-  original?: ReactStoreConstructor<Instance>;
+  original?: ReactStoreCreator<Value>;
+}
+
+// deno-lint-ignore no-empty-interface
+interface ReactStoreCreator<Value> extends CallableDependencyKey<[], Value> {}
+
+interface ReactStoreCreatorMixins {
+  // deno-lint-ignore no-explicit-any
+  clone<Creator extends ReactStoreCreator<any>>(this: Creator): Creator;
+  useClone<Value>(this: ReactStoreCreator<Value>): Value;
+  useInstance<Value>(this: ReactStoreCreator<Value>): Value;
 }
 
 interface ReactStoreRootProvider {
@@ -41,11 +49,12 @@ interface ReactStoreRootProvider {
 
 interface ReactStoreRootProviderProps {
   readonly children?: React.ReactNode;
-  readonly init?: (host: DependencyRootHost<ReactStoreRoot>) => void;
+  readonly create?: (host: DependencyRootHost<ReactStoreRoot>) => void;
 }
 
 export type {
-  ReactStoreConstructor,
+  ReactStoreCreator,
+  ReactStoreCreatorMixins,
   ReactStoreRootProvider,
   ReactStoreRootProviderProps,
 };
@@ -58,7 +67,7 @@ export const ReactStoreContainer = createReactStoreContainer();
 
 function createReactStoreContainer(): ReactStoreContainer {
   const descriptors = new WeakMap<
-    ReactStoreConstructor<unknown>,
+    ReactStoreCreator<unknown>,
     ReactStoreDescriptor<unknown>
   >();
   const [useRootHost, RootHostProvider] = createRuntimeOnlyContext<
@@ -71,41 +80,56 @@ function createReactStoreContainer(): ReactStoreContainer {
     },
   });
 
+  const mixins: ReactStoreCreatorMixins = {
+    clone() {
+      return container.clone(this);
+    },
+    useClone() {
+      return container.useClone(this);
+    },
+    useInstance() {
+      return container.useInstance(this);
+    },
+  };
+
   const container: ReactStoreContainer = {
-    KeepAlive(Store) {
-      emplaceReactStoreDescriptor(Store).keepAlive = true;
+    KeepAlive(create) {
+      emplaceReactStoreDescriptor(create).keepAlive = true;
+      return create;
     },
     Provider(props) {
-      const { children, init } = props;
+      const { children, create } = props;
       const root = useConstant(() => {
         const host = depContainer.createRoot(ReactStoreRoot);
-        init?.(host);
+        create?.(host);
         return host;
       });
       return <RootHostProvider value={root}>{children}</RootHostProvider>;
     },
-    clone(Store) {
-      // deno-lint-ignore no-explicit-any
-      const original: any = descriptors.get(Store)?.original ?? Store;
-      // deno-lint-ignore no-explicit-any
-      const clone: any = class ReactStoreClone extends original {};
+    clone(create) {
+      const original =
+        (descriptors.get(create)?.original ?? create) as typeof create;
+      const clone = new Proxy(original, {});
       descriptors.set(clone, { original });
       return clone;
     },
-    useClone(Store) {
-      return container.useInstance(useConstant(() => container.clone(Store)));
+    mixin(create) {
+      return Object.assign(create, mixins);
     },
-    useInstance(Store) {
+    useClone(create) {
+      return container.useInstance(useConstant(() => container.clone(create)));
+    },
+    useInstance(create) {
       const root = useRootHost();
       return useConstant(() => {
-        const { keepAlive } = emplaceReactStoreDescriptor(Store);
-        if (keepAlive) return [root.new(Store)] as const;
+        const { keepAlive } = emplaceReactStoreDescriptor(create);
+        if (keepAlive) return [root.call(create)] as const;
 
         const handle: WeakDependencyHandle = {};
         const weakKey = (host: DependencyHost) => host;
         const weakHost: DependencyHost = root.call(weakKey);
         root.weaken(weakKey, handle);
-        return [weakHost.new(Store), handle] as const;
+        return [weakHost.call(create), handle] as const;
       })[0];
     },
   };
@@ -113,11 +137,11 @@ function createReactStoreContainer(): ReactStoreContainer {
   return container;
 
   function emplaceReactStoreDescriptor<Instance>(
-    Store: ReactStoreConstructor<Instance>,
+    create: ReactStoreCreator<Instance>,
   ): ReactStoreDescriptor<Instance>;
   function emplaceReactStoreDescriptor(
-    Store: ReactStoreConstructor<unknown>,
+    create: ReactStoreCreator<unknown>,
   ): ReactStoreDescriptor<unknown> {
-    return emplaceMap(descriptors, Store, { insert: () => ({}) });
+    return emplaceMap(descriptors, create, { insert: () => ({}) });
   }
 }

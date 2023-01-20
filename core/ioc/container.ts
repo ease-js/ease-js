@@ -71,10 +71,10 @@ export interface DependencyContainer {
    */
   readonly Hoist: (
     scope?: DependencyScope | boolean,
-  ) => (key: AnyDependencyKey) => void;
+  ) => <Key extends AnyDependencyKey>(key: Key) => Key;
   readonly Scope: (
     scope: DependencyScope | null,
-  ) => (key: AnyDependencyKey) => void;
+  ) => <Key extends AnyDependencyKey>(key: Key) => Key;
   readonly createRoot: <Params extends AnyParams, Value>(
     key: NewableDependencyKey<Params, Value>,
     ...params: Params
@@ -132,6 +132,7 @@ export function createDependencyContainer(
           if (scope) draft.hoist = scope === true ? scope : { scope };
           else delete draft.hoist;
         });
+        return key;
       };
     },
     Scope(scope) {
@@ -140,6 +141,7 @@ export function createDependencyContainer(
           if (scope) draft.scope = scope;
           else delete draft.scope;
         });
+        return key;
       };
     },
     createRoot(key, ...params) {
