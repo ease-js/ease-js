@@ -32,15 +32,15 @@ export interface BehaviorSubjectCombinationCreator<Combination>
     BehaviorSubjectCombinationCreatorMixins {}
 
 export interface BehaviorSubjectCombinationCreatorMixins {
-  useLocalState<Combination>(
-    this: BehaviorSubjectCombinationCreator<Combination>,
-  ): Combination;
-  useState<Combination>(
-    this: BehaviorSubjectCombinationCreator<Combination>,
-  ): Combination;
-  useState<Combination, Selection>(
-    this: BehaviorSubjectCombinationCreator<Combination>,
-    selector: BehaviorSubjectValueSelector<Combination, Selection>,
+  useLocalState<Result>(
+    this: BehaviorSubjectCombinationCreator<Result>,
+  ): Result;
+  useState<Result>(
+    this: BehaviorSubjectCombinationCreator<Result>,
+  ): Result;
+  useState<Result, Selection>(
+    this: BehaviorSubjectCombinationCreator<Result>,
+    selector: BehaviorSubjectValueSelector<Result, Selection>,
     deps?: React.DependencyList,
   ): Selection;
 }
@@ -48,16 +48,13 @@ export interface BehaviorSubjectCombinationCreatorMixins {
 export function defineCombination<Combination extends AnyCombination>(
   creators: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
 ): BehaviorSubjectCombinationCreator<Readonly<Combination>>;
-export function defineCombination<
-  Combination extends AnyCombination,
-  Selection,
->(
+export function defineCombination<Combination extends AnyCombination, Result>(
   creators: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
-  selector: (...combination: Combination) => Selection,
-): BehaviorSubjectCombinationCreator<Selection>;
+  selector: (...combination: Combination) => Result,
+): BehaviorSubjectCombinationCreator<Result>;
 export function defineCombination<Combination extends AnyCombination>(
   creators: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
-  selector: (...combination: Combination) => unknown = defaultSelector,
+  selector?: (...combination: Combination) => unknown,
 ):
   | BehaviorSubjectCombinationCreator<Readonly<Combination>>
   | BehaviorSubjectCombinationCreator<unknown> {
@@ -68,40 +65,38 @@ export function defineCombination<Combination extends AnyCombination>(
 
   function createCombination(): BehaviorSubject<unknown> {
     const subject = new BehaviorSubject<unknown>(undefined);
-    combineLatest<Combination, unknown>(
-      creators as ObservableInputTuple<Combination>,
-      selector,
-    )
-      .subscribe(subject);
+    const observable = selector
+      ? combineLatest<Combination, unknown>(
+        creators as ObservableInputTuple<Combination>,
+        selector,
+      )
+      : combineLatest<Combination>(
+        creators as ObservableInputTuple<Combination>,
+      );
+    observable.subscribe(subject);
     return subject;
   }
 }
 
-function defaultSelector<Combination extends AnyCombination>(
-  ...combination: Combination
-): Combination {
-  return combination;
-}
-
-function useLocalState<Combination>(
-  this: BehaviorSubjectCombinationCreator<Combination>,
-): Combination {
+function useLocalState<Result>(
+  this: BehaviorSubjectCombinationCreator<Result>,
+): Result {
   return useBehaviorSubjectValue(this.useClone());
 }
 
-function useState<Combination>(
-  this: BehaviorSubjectCombinationCreator<Combination>,
-): Combination;
-function useState<Combination, Selection>(
-  this: BehaviorSubjectCombinationCreator<Combination>,
-  selector: BehaviorSubjectValueSelector<Combination, Selection>,
+function useState<Result>(
+  this: BehaviorSubjectCombinationCreator<Result>,
+): Result;
+function useState<Result, Selection>(
+  this: BehaviorSubjectCombinationCreator<Result>,
+  selector: BehaviorSubjectValueSelector<Result, Selection>,
   deps?: React.DependencyList,
 ): Selection;
-function useState<Combination, Selection>(
-  this: BehaviorSubjectCombinationCreator<Combination>,
-  selector?: BehaviorSubjectValueSelector<Combination, Selection>,
+function useState<Result, Selection>(
+  this: BehaviorSubjectCombinationCreator<Result>,
+  selector?: BehaviorSubjectValueSelector<Result, Selection>,
   deps?: React.DependencyList,
-): Combination | Selection {
+): Result | Selection {
   return selector
     ? useBehaviorSubjectValueWithSelector(this.useInstance(), selector, deps)
     : useBehaviorSubjectValue(this.useInstance());
