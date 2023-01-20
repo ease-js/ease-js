@@ -25,21 +25,20 @@ export type BehaviorSubjectStoreCreatorInputTuple<
   [Index in keyof Combination]: BehaviorSubjectStoreCreator<Combination[Index]>;
 };
 
-export interface BehaviorSubjectCombinationCreator<
-  Combination extends AnyCombination,
-> extends
-  ReactStoreCreator<BehaviorSubject<Combination>>,
-  ReactStoreCreatorMixins,
-  BehaviorSubjectCombinationCreatorMixins {}
+export interface BehaviorSubjectCombinationCreator<Combination>
+  extends
+    ReactStoreCreator<BehaviorSubject<Combination>>,
+    ReactStoreCreatorMixins,
+    BehaviorSubjectCombinationCreatorMixins {}
 
 export interface BehaviorSubjectCombinationCreatorMixins {
-  useLocalState<Combination extends AnyCombination>(
+  useLocalState<Combination>(
     this: BehaviorSubjectCombinationCreator<Combination>,
   ): Combination;
-  useState<Combination extends AnyCombination>(
+  useState<Combination>(
     this: BehaviorSubjectCombinationCreator<Combination>,
   ): Combination;
-  useState<Combination extends AnyCombination, Selection>(
+  useState<Combination, Selection>(
     this: BehaviorSubjectCombinationCreator<Combination>,
     selector: BehaviorSubjectValueSelector<Combination, Selection>,
     deps?: React.DependencyList,
@@ -48,35 +47,57 @@ export interface BehaviorSubjectCombinationCreatorMixins {
 
 export function defineCombination<Combination extends AnyCombination>(
   creators: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
-): BehaviorSubjectCombinationCreator<Combination> {
+): BehaviorSubjectCombinationCreator<Readonly<Combination>>;
+export function defineCombination<
+  Combination extends AnyCombination,
+  Selection,
+>(
+  creators: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
+  selector: (...combination: Combination) => Selection,
+): BehaviorSubjectCombinationCreator<Selection>;
+export function defineCombination<Combination extends AnyCombination>(
+  creators: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
+  selector: (...combination: Combination) => unknown = defaultSelector,
+):
+  | BehaviorSubjectCombinationCreator<Readonly<Combination>>
+  | BehaviorSubjectCombinationCreator<unknown> {
   return Object.assign(ReactStoreContainer.mixin(createCombination), {
     useLocalState,
     useState,
   });
 
-  function createCombination(): BehaviorSubject<Combination> {
-    const subject = new BehaviorSubject<Combination>(undefined!);
-    combineLatest<Combination>(creators as ObservableInputTuple<Combination>)
+  function createCombination(): BehaviorSubject<unknown> {
+    const subject = new BehaviorSubject<unknown>(undefined);
+    combineLatest<Combination, unknown>(
+      creators as ObservableInputTuple<Combination>,
+      selector,
+    )
       .subscribe(subject);
     return subject;
   }
 }
 
-function useLocalState<Combination extends AnyCombination>(
+function defaultSelector<Combination extends AnyCombination>(
+  ...combination: Combination
+): Combination {
+  return combination;
+}
+
+function useLocalState<Combination>(
   this: BehaviorSubjectCombinationCreator<Combination>,
 ): Combination {
   return useBehaviorSubjectValue(this.useClone());
 }
 
-function useState<Combination extends AnyCombination>(
+function useState<Combination>(
   this: BehaviorSubjectCombinationCreator<Combination>,
 ): Combination;
-function useState<Combination extends AnyCombination, Selection>(
+function useState<Combination, Selection>(
   this: BehaviorSubjectCombinationCreator<Combination>,
   selector: BehaviorSubjectValueSelector<Combination, Selection>,
   deps?: React.DependencyList,
 ): Selection;
-function useState<Combination extends AnyCombination, Selection>(
+function useState<Combination, Selection>(
   this: BehaviorSubjectCombinationCreator<Combination>,
   selector?: BehaviorSubjectValueSelector<Combination, Selection>,
   deps?: React.DependencyList,
