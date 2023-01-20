@@ -8,7 +8,6 @@
 
 import { assert } from "std/testing/asserts.ts";
 import { emplaceMap } from "../tools/emplace.ts";
-import type { WeakDependencyHandle } from "./dependency.ts";
 import * as deps from "./dependency.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -27,12 +26,16 @@ type DependencyDescriptor<Params extends AnyParams, Value> =
     DependencyScope,
     Value
   >;
+type DependencyDescriptorDraft<Params extends AnyParams, Value> = Writable<
+  Pick<DependencyDescriptor<Params, Value>, "hoist" | "scope">
+>;
 type DependencyKey<Params extends AnyParams, Value> =
   | CallableDependencyKey<Params, Value>
   | NewableDependencyKey<Params, Value>;
 type DependencyScope =
   | CallableFunction
   | NewableFunction;
+type WeakDependencyHandle = deps.WeakDependencyHandle;
 
 type CallableDependencyKey<Params extends AnyParams, Value> = (
   host: DependencyHost,
@@ -43,11 +46,6 @@ type NewableDependencyKey<Params extends AnyParams, Value> = new (
   ...params: Params
 ) => Value;
 
-type PartialDependencyDescriptor<Params extends AnyParams, Value> = Pick<
-  DependencyDescriptor<Params, Value>,
-  "hoist" | "scope"
->;
-
 type ParametersOfDependencyKey<Key extends DependencyKey<Any, Any>> =
   Key extends Dependency<infer Params, Any> ? Params : never;
 type ValueOfDependencyKey<Key extends DependencyKey<Any, Any>> = Key extends
@@ -55,6 +53,7 @@ type ValueOfDependencyKey<Key extends DependencyKey<Any, Any>> = Key extends
 
 export type {
   CallableDependencyKey,
+  DependencyDescriptor,
   DependencyKey,
   DependencyScope,
   NewableDependencyKey,
@@ -77,6 +76,12 @@ export interface DependencyContainer {
     key: NewableDependencyKey<Params, Value>,
     ...params: Params
   ) => DependencyRootHost<Value>;
+}
+
+export interface DependencyContainerHost {
+  readonly createDescriptor: <Params extends AnyParams, Value>(
+    descriptor: DependencyDescriptor<Params, Value>,
+  ) => DependencyDescriptor<Params, Value>;
 }
 
 export interface DependencyHost {
@@ -108,26 +113,28 @@ export interface DependencyRootHost<RootValue> extends DependencyHost {
 /**
  * 创建一个依赖容器。
  */
-export function createDependencyContainer(): DependencyContainer {
-  const DescriptorMap = new WeakMap<
+export function createDependencyContainer(
+  containerHost: DependencyContainerHost,
+): DependencyContainer {
+  const descriptorDrafts = new WeakMap<
     DependencyKey<Any, Any>,
-    Writable<PartialDependencyDescriptor<Any, Any>>
+    DependencyDescriptorDraft<Any, Any>
   >();
 
   return {
     Hoist(scope = true) {
       return function decorator(key) {
-        updateDependencyDescriptor(key, (descriptor) => {
-          if (scope) descriptor.hoist = scope === true ? scope : { scope };
-          else delete descriptor.hoist;
+        updateDependencyDescriptor(key, (draft) => {
+          if (scope) draft.hoist = scope === true ? scope : { scope };
+          else delete draft.hoist;
         });
       };
     },
     Scope(scope) {
       return function decorator(key) {
-        updateDependencyDescriptor(key, (descriptor) => {
-          if (scope) descriptor.scope = scope;
-          else delete descriptor.scope;
+        updateDependencyDescriptor(key, (draft) => {
+          if (scope) draft.scope = scope;
+          else delete draft.scope;
         });
       };
     },
@@ -203,22 +210,20 @@ export function createDependencyContainer(): DependencyContainer {
     key: DependencyKey<Params, Value>,
     load: (dependency: Dependency<Params, Value>) => Value,
   ): DependencyDescriptor<Params, Value> {
-    const descriptor: PartialDependencyDescriptor<Params, Value> =
-      DescriptorMap.get(key) || {};
-    const { hoist, scope = key } = descriptor;
-    return { hoist, key, load, scope };
+    const draft: DependencyDescriptorDraft<Params, Value> =
+      descriptorDrafts.get(key) || {};
+    const { hoist, scope = key } = draft;
+    return containerHost.createDescriptor({ hoist, key, load, scope });
   }
 
   function updateDependencyDescriptor<Params extends AnyParams, Value>(
     key: DependencyKey<Params, Value>,
-    update: (
-      descriptor: Writable<PartialDependencyDescriptor<Params, Value>>,
-    ) => void,
+    update: (draft: DependencyDescriptorDraft<Params, Value>) => void,
   ): void {
-    const descriptor = emplaceMap(DescriptorMap, key, {
-      insert: (): PartialDependencyDescriptor<Params, Value> => ({}),
+    const draft = emplaceMap(descriptorDrafts, key, {
+      insert: (): DependencyDescriptorDraft<Params, Value> => ({}),
     });
 
-    update(descriptor);
+    update(draft);
   }
 }
