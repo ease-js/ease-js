@@ -10,7 +10,7 @@ import { emplaceMap } from "../../core/tools/emplace.ts";
 import { useConstant } from "../tools/memo/use-constant.ts";
 import { createRuntimeOnlyContext } from "../tools/runtime-only-context/mod.tsx";
 
-interface ReactStoreCloneOptions {
+interface ReactStoreCloneOptions extends ReactStoreDecorateOptions {
   /**
    * @default true
    */
@@ -18,6 +18,10 @@ interface ReactStoreCloneOptions {
 }
 
 interface ReactStoreContainer {
+  readonly Decorate: (
+    options: ReactStoreDecorateOptions,
+    // deno-lint-ignore no-explicit-any
+  ) => <Creator extends ReactStoreCreator<any>>(create: Creator) => Creator;
   readonly Provider: ReactStoreRootProvider;
   // deno-lint-ignore no-explicit-any
   readonly Weaken: <Creator extends ReactStoreCreator<any>>(
@@ -49,6 +53,13 @@ interface ReactStoreCreatorMixins {
   useInstance<Value>(this: ReactStoreCreator<Value>): Value;
 }
 
+interface ReactStoreDecorateOptions {
+  /**
+   * @default false
+   */
+  readonly weak?: boolean;
+}
+
 interface ReactStoreDescriptor<Value> {
   original?: ReactStoreCreator<Value>;
   weak?: boolean;
@@ -68,6 +79,7 @@ export type {
   ReactStoreContainer,
   ReactStoreCreator,
   ReactStoreCreatorMixins,
+  ReactStoreDecorateOptions,
   ReactStoreRootProvider,
   ReactStoreRootProviderProps,
 };
@@ -95,60 +107,79 @@ function createReactStoreContainer(): ReactStoreContainer {
 
   const mixins: ReactStoreCreatorMixins = {
     clone(options) {
-      return container.clone(this, options);
+      return clone(this, options);
     },
     useClone() {
-      return container.useClone(this);
+      return useClone(this);
     },
     useInstance() {
-      return container.useInstance(this);
+      return useInstance(this);
     },
   };
 
-  const container: ReactStoreContainer = {
-    Provider(props) {
-      const { children, create } = props;
-      const root = useConstant(() => {
-        const host = depContainer.createRoot(ReactStoreRoot);
-        create?.(host);
-        return host;
-      });
-      return <RootHostProvider value={root}>{children}</RootHostProvider>;
-    },
-    Weaken(create) {
-      emplaceReactStoreDescriptor(create).weak = true;
+  const Decorate: ReactStoreContainer["Decorate"] = function Decorate(options) {
+    return function decorate(create) {
+      const { weak } = options;
+      const descriptor = emplaceReactStoreDescriptor(create);
+      if (weak) descriptor.weak = true;
       return create;
-    },
-    clone(create, options = {}) {
-      const { weak = true } = options;
-      const original =
-        (descriptors.get(create)?.original ?? create) as typeof create;
-      const clone = new Proxy(original, {});
-      descriptors.set(clone, { original, weak });
-      return clone;
-    },
-    mixin(create) {
-      return Object.assign(create, mixins);
-    },
-    useClone(create) {
-      return container.useInstance(useConstant(() => container.clone(create)));
-    },
-    useInstance(create) {
-      const root = useRootHost();
-      return useConstant(() => {
-        const descriptor = emplaceReactStoreDescriptor(create);
-        if (!descriptor.weak) return [root.call(create)] as const;
-
-        const handle: WeakDependencyHandle = {};
-        const weakKey = (host: DependencyHost) => host;
-        const weakHost: DependencyHost = root.call(weakKey);
-        root.weaken(weakKey, handle);
-        return [weakHost.call(create), handle] as const;
-      })[0];
-    },
+    };
   };
 
-  return container;
+  const Provider: ReactStoreContainer["Provider"] = function Provider(props) {
+    const { children, create } = props;
+    const root = useConstant(() => {
+      const host = depContainer.createRoot(ReactStoreRoot);
+      create?.(host);
+      return host;
+    });
+    return <RootHostProvider value={root}>{children}</RootHostProvider>;
+  };
+
+  const clone: ReactStoreContainer["clone"] = function clone(
+    create,
+    options = {},
+  ) {
+    const original =
+      (descriptors.get(create)?.original ?? create) as typeof create;
+    const clone = new Proxy(original, {});
+    descriptors.set(clone, { original, weak: options.weak !== false });
+    return clone;
+  };
+
+  const mixin: ReactStoreContainer["mixin"] = function mixin(create) {
+    return Object.assign(create, mixins);
+  };
+
+  const useClone: ReactStoreContainer["useClone"] = function useClone(create) {
+    return useInstance(useConstant(() => clone(create)));
+  };
+
+  const useInstance: ReactStoreContainer["useInstance"] = function useInstance(
+    create,
+  ) {
+    const root = useRootHost();
+    return useConstant(() => {
+      const descriptor = emplaceReactStoreDescriptor(create);
+      if (!descriptor.weak) return [root.call(create)] as const;
+
+      const handle: WeakDependencyHandle = {};
+      const weakKey = (host: DependencyHost) => host;
+      const weakHost: DependencyHost = root.call(weakKey);
+      root.weaken(weakKey, handle);
+      return [weakHost.call(create), handle] as const;
+    })[0];
+  };
+
+  return {
+    Decorate,
+    Provider,
+    Weaken: Decorate({ weak: true }),
+    clone,
+    mixin,
+    useClone,
+    useInstance,
+  };
 
   function emplaceReactStoreDescriptor<Instance>(
     create: ReactStoreCreator<Instance>,

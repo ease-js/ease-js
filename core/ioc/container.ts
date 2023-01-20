@@ -10,6 +10,8 @@ import { assert } from "std/testing/asserts.ts";
 import { emplaceMap } from "../tools/emplace.ts";
 import * as deps from "./dependency.ts";
 
+export const destructor = Symbol("DependencyDestructor");
+
 // deno-lint-ignore no-explicit-any
 type AnyDependency = Dependency<any, any>;
 // deno-lint-ignore no-explicit-any
@@ -40,30 +42,29 @@ type DependencyScope =
   | NewableFunction;
 type WeakDependencyHandle = deps.WeakDependencyHandle;
 
-type CallableDependencyKey<Params extends AnyParams, Value> = (
-  host: DependencyHost,
-  ...params: Params
-) => Value;
-type NewableDependencyKey<Params extends AnyParams, Value> = new (
-  host: DependencyHost,
-  ...params: Params
-) => Value;
-
 type ParametersOfDependencyKey<Key extends AnyDependencyKey> = Key extends
   Dependency<infer Params, infer _Value> ? Params : never;
 type ValueOfDependencyKey<Key extends AnyDependencyKey> = Key extends
   Dependency<infer _Params, infer Value> ? Value : never;
 
 export type {
-  CallableDependencyKey,
   DependencyDescriptor,
   DependencyKey,
   DependencyScope,
-  NewableDependencyKey,
   ParametersOfDependencyKey,
   ValueOfDependencyKey,
   WeakDependencyHandle,
 };
+
+export interface CallableDependencyKey<Params extends AnyParams, Value> {
+  (host: DependencyHost, ...params: Params): Value;
+  [destructor]?: (value: Value) => void;
+}
+
+export interface NewableDependencyKey<Params extends AnyParams, Value> {
+  new (host: DependencyHost, ...params: Params): Value;
+  [destructor]?: (value: Value) => void;
+}
 
 export interface DependencyContainer {
   /**
@@ -217,7 +218,8 @@ export function createDependencyContainer(
     const draft: DependencyDescriptorDraft<Params, Value> =
       descriptorDrafts.get(key) || {};
     const { hoist, scope = key } = draft;
-    return containerHost.createDescriptor({ hoist, key, load, scope });
+    const unload = key[destructor];
+    return containerHost.createDescriptor({ hoist, key, load, scope, unload });
   }
 
   function updateDependencyDescriptor<Params extends AnyParams, Value>(

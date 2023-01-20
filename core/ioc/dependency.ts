@@ -139,6 +139,10 @@ export interface DependencyInit<Key, Scope, Value = unknown> {
    * 对于非根节点的依赖，不配置此项、或者传入 `null` 与 `undefined` 则不允许任何共享依赖安装在此处。
    */
   readonly scope?: Scope | null;
+  /**
+   * 当前节点被回收后，调用此函数进行清理。如果 `load()` 未曾被调用过，则不会执行 `unload()` 。
+   */
+  readonly unload?: (value: Value) => void;
 }
 
 /**
@@ -174,15 +178,16 @@ export class Dependency<Key, Scope, Value = unknown> {
   /**
    * 当前节点保存的值。
    */
-  #value: (() => Value) | undefined;
+  #value: { (): Value; unload?: () => void } | undefined;
   /**
    * 弱引用依赖的注册中心。
    */
   #weak: FinalizationRegistry<Key> | undefined;
 
   constructor(init: DependencyInit<Key, Scope, Value>) {
-    const { load, scope } = init;
+    const { load, scope, unload } = init;
     assert(typeof load === "function");
+    assert(unload === undefined || typeof unload === "function");
 
     this.#scope = scope ?? NeverScope;
     this.#value = () => {
@@ -190,6 +195,7 @@ export class Dependency<Key, Scope, Value = unknown> {
       this.#value = undefined;
       const value = load(this);
       this.#value = () => value;
+      if (unload) this.#value.unload = () => unload(value);
       return value;
     };
   }
@@ -252,6 +258,7 @@ export class Dependency<Key, Scope, Value = unknown> {
     startNode.#referrers?.delete(this);
     if (!startNode.#isUnreachable()) return;
 
+    const destructors: (() => void)[] = [];
     const pending: Iterable<Dependency<Key, Scope>>[] = [];
     let iterable: Iterable<Dependency<Key, Scope>> | undefined = [startNode];
 
@@ -278,13 +285,21 @@ export class Dependency<Key, Scope, Value = unknown> {
           dep.#references = undefined;
         }
 
+        if (dep.#value) {
+          if (dep.#value.unload) destructors.push(dep.#value.unload);
+          dep.#value = undefined;
+        }
+
         dep.#children = undefined;
         dep.#referrers = undefined;
         dep.#scope = NeverScope;
-        dep.#value = undefined;
         dep.#weak = undefined;
       }
     } while ((iterable = pending.pop()));
+
+    for (const unload of destructors) {
+      unload();
+    }
   }
 
   /**

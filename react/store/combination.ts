@@ -1,6 +1,7 @@
 import type React from "react";
-import type { ObservableInputTuple } from "rxjs";
+import type { Observable, ObservableInputTuple, Subscription } from "rxjs";
 import { BehaviorSubject, combineLatest } from "rxjs";
+import { destructor } from "../../core.ts";
 import type { BehaviorSubjectValueSelector } from "../tools/rxjs/use-behavior-subject-value.ts";
 import {
   useBehaviorSubjectValue,
@@ -25,48 +26,61 @@ export type BehaviorSubjectStoreCreatorInputTuple<
   [Index in keyof Combination]: BehaviorSubjectStoreCreator<Combination[Index]>;
 };
 
-export interface BehaviorSubjectCombinationCreator<Combination>
+export interface CombinationDestinationCreator<Combination>
   extends
-    ReactStoreCreator<BehaviorSubject<Combination>>,
+    ReactStoreCreator<CombinationDestination<Combination>>,
     ReactStoreCreatorMixins,
-    BehaviorSubjectCombinationCreatorMixins {}
+    CombinationDestinationCreatorMixins {}
 
-export interface BehaviorSubjectCombinationCreatorMixins {
+export interface CombinationDestinationCreatorMixins {
   useCombination<Result>(
-    this: BehaviorSubjectCombinationCreator<Result>,
+    this: CombinationDestinationCreator<Result>,
   ): Result;
   useCombination<Result, Selection>(
-    this: BehaviorSubjectCombinationCreator<Result>,
+    this: CombinationDestinationCreator<Result>,
     selector: BehaviorSubjectValueSelector<Result, Selection>,
     deps?: React.DependencyList,
   ): Selection;
 }
 
+export class CombinationDestination<Result> extends BehaviorSubject<Result> {
+  readonly #subscription: Subscription;
+
+  constructor(source: Observable<Result>) {
+    super(undefined!);
+    this.#subscription = source.subscribe(this);
+  }
+
+  unsubscribe(): void {
+    this.#subscription.unsubscribe();
+    super.unsubscribe();
+  }
+}
+
 export function defineCombination<Combination extends AnyCombination>(
   deps: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
-): BehaviorSubjectCombinationCreator<Readonly<Combination>>;
+): CombinationDestinationCreator<Readonly<Combination>>;
 export function defineCombination<Combination extends AnyCombination, Result>(
   deps: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
   selector: (...combination: Combination) => Result,
-): BehaviorSubjectCombinationCreator<Result>;
+): CombinationDestinationCreator<Result>;
 export function defineCombination<Combination extends AnyCombination>(
   deps: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
   selector?: (...combination: Combination) => unknown,
 ):
-  | BehaviorSubjectCombinationCreator<Readonly<Combination>>
-  | BehaviorSubjectCombinationCreator<unknown> {
-  const createCombination: ReactStoreCreator<BehaviorSubject<unknown>> =
+  | CombinationDestinationCreator<Readonly<Combination>>
+  | CombinationDestinationCreator<unknown> {
+  const createCombination: ReactStoreCreator<CombinationDestination<unknown>> =
     function createCombination(host) {
-      const dest = new BehaviorSubject<unknown>(undefined);
       const sources = deps.map((dep): BehaviorSubject<unknown> => {
         return host.call(dep);
       });
       const observable = selector
         ? combineLatest(sources as ObservableInputTuple<Combination>, selector)
         : combineLatest(sources);
-      observable.subscribe(dest);
-      return dest;
+      return new CombinationDestination(observable);
     };
+  createCombination[destructor] = (destination) => destination.unsubscribe();
 
   return Object.assign(store.mixin(createCombination), {
     useCombination,
@@ -74,15 +88,15 @@ export function defineCombination<Combination extends AnyCombination>(
 }
 
 function useCombination<Result>(
-  this: BehaviorSubjectCombinationCreator<Result>,
+  this: CombinationDestinationCreator<Result>,
 ): Result;
 function useCombination<Result, Selection>(
-  this: BehaviorSubjectCombinationCreator<Result>,
+  this: CombinationDestinationCreator<Result>,
   selector: BehaviorSubjectValueSelector<Result, Selection>,
   deps?: React.DependencyList,
 ): Selection;
 function useCombination<Result, Selection>(
-  this: BehaviorSubjectCombinationCreator<Result>,
+  this: CombinationDestinationCreator<Result>,
   selector?: BehaviorSubjectValueSelector<Result, Selection>,
   deps?: React.DependencyList,
 ): Result | Selection {
