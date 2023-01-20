@@ -11,8 +11,11 @@ import { emplaceMap } from "../tools/emplace.ts";
 import * as deps from "./dependency.ts";
 
 // deno-lint-ignore no-explicit-any
-type Any = any;
-type AnyParams = readonly Any[];
+type AnyDependency = Dependency<any, any>;
+// deno-lint-ignore no-explicit-any
+type AnyDependencyKey = DependencyKey<any, any>;
+// deno-lint-ignore no-explicit-any
+type AnyParams = readonly any[];
 type Writable<T> = { -readonly [Key in keyof T]: T[Key] };
 
 type Dependency<Params extends AnyParams, Value> = deps.Dependency<
@@ -46,10 +49,10 @@ type NewableDependencyKey<Params extends AnyParams, Value> = new (
   ...params: Params
 ) => Value;
 
-type ParametersOfDependencyKey<Key extends DependencyKey<Any, Any>> =
-  Key extends Dependency<infer Params, Any> ? Params : never;
-type ValueOfDependencyKey<Key extends DependencyKey<Any, Any>> = Key extends
-  Dependency<Any, infer Value> ? Value : never;
+type ParametersOfDependencyKey<Key extends AnyDependencyKey> = Key extends
+  Dependency<infer Params, infer _Value> ? Params : never;
+type ValueOfDependencyKey<Key extends AnyDependencyKey> = Key extends
+  Dependency<infer _Params, infer Value> ? Value : never;
 
 export type {
   CallableDependencyKey,
@@ -68,10 +71,10 @@ export interface DependencyContainer {
    */
   readonly Hoist: (
     scope?: DependencyScope | boolean,
-  ) => (key: DependencyKey<Any, Any>) => void;
+  ) => (key: AnyDependencyKey) => void;
   readonly Scope: (
     scope: DependencyScope | null,
-  ) => (key: DependencyKey<Any, Any>) => void;
+  ) => (key: AnyDependencyKey) => void;
   readonly createRoot: <Params extends AnyParams, Value>(
     key: NewableDependencyKey<Params, Value>,
     ...params: Params
@@ -117,8 +120,9 @@ export function createDependencyContainer(
   containerHost: DependencyContainerHost,
 ): DependencyContainer {
   const descriptorDrafts = new WeakMap<
-    DependencyKey<Any, Any>,
-    DependencyDescriptorDraft<Any, Any>
+    AnyDependencyKey,
+    // deno-lint-ignore no-explicit-any
+    DependencyDescriptorDraft<any, any>
   >();
 
   return {
@@ -146,9 +150,7 @@ export function createDependencyContainer(
     },
   };
 
-  function createDependencyHost(
-    dependency: Dependency<Any, Any>,
-  ): DependencyHost {
+  function createDependencyHost(dependency: AnyDependency): DependencyHost {
     return {
       call(key, ...params) {
         const load = createCallableDependencyLoader(key, params);
@@ -170,7 +172,7 @@ export function createDependencyContainer(
   }
 
   function createDependencyRootHost<RootValue>(
-    dependency: Dependency<Any, Any>,
+    dependency: AnyDependency,
   ): DependencyRootHost<RootValue> {
     return {
       ...createDependencyHost(dependency),

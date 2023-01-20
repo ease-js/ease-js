@@ -12,7 +12,7 @@ import type { ReactStoreConstructor } from "./container.tsx";
 import { ReactStoreContainer } from "./container.tsx";
 
 // deno-lint-ignore no-explicit-any
-type Any = any;
+type AnyReactState = ReactState<any>;
 
 export interface DefinedReactStateClass<State>
   extends
@@ -27,27 +27,29 @@ export type ReactStateProduceRecipe<State> = (
   draft: Draft<State>,
 ) => void | Draft<State>;
 
-export type StateOfReactStateInstance<Instance extends ReactState<Any>> =
+export type StateOfReactStateInstance<Instance extends AnyReactState> =
   Instance extends ReactState<infer State> ? State : never;
 
 export class ReactState<State> extends BehaviorSubject<Immutable<State>> {
-  static clone<Class extends ReactStoreConstructor<Any>>(this: Class): Class {
+  static clone<Class extends ReactStoreConstructor<AnyReactState>>(
+    this: Class,
+  ): Class {
     return ReactStoreContainer.clone(this);
   }
 
-  static useClone<Instance extends ReactState<Any>>(
+  static useClone<Instance extends AnyReactState>(
     this: ReactStoreConstructor<Instance>,
   ): Instance {
     return ReactStoreContainer.useClone(this);
   }
 
-  static useInstance<Instance extends ReactState<Any>>(
+  static useInstance<Instance extends AnyReactState>(
     this: ReactStoreConstructor<Instance>,
   ): Instance {
     return ReactStoreContainer.useInstance(this);
   }
 
-  static useLocalState<Instance extends ReactState<Any>>(
+  static useLocalState<Instance extends AnyReactState>(
     this: ReactStoreConstructor<Instance>,
   ): [
     state: Immutable<StateOfReactStateInstance<Instance>>,
@@ -62,7 +64,7 @@ export class ReactState<State> extends BehaviorSubject<Immutable<State>> {
     ];
   }
 
-  static useState<Instance extends ReactState<Any>>(
+  static useState<Instance extends AnyReactState>(
     this: ReactStoreConstructor<Instance>,
   ): [
     state: Immutable<StateOfReactStateInstance<Instance>>,
@@ -70,7 +72,7 @@ export class ReactState<State> extends BehaviorSubject<Immutable<State>> {
       recipe: ReactStateProduceRecipe<StateOfReactStateInstance<Instance>>,
     ) => void,
   ];
-  static useState<Instance extends ReactState<Any>, Selection>(
+  static useState<Instance extends AnyReactState, Selection>(
     this: ReactStoreConstructor<Instance>,
     selector: BehaviorSubjectValueSelector<
       Immutable<StateOfReactStateInstance<Instance>>,
@@ -83,7 +85,7 @@ export class ReactState<State> extends BehaviorSubject<Immutable<State>> {
       recipe: ReactStateProduceRecipe<StateOfReactStateInstance<Instance>>,
     ) => void,
   ];
-  static useState<Instance extends ReactState<Any>, Selection>(
+  static useState<Instance extends AnyReactState, Selection>(
     this: ReactStoreConstructor<Instance>,
     selector?: BehaviorSubjectValueSelector<
       Immutable<StateOfReactStateInstance<Instance>>,

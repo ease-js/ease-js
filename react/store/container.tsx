@@ -10,21 +10,16 @@ import { emplaceMap } from "../../core/tools/emplace.ts";
 import { useConstant } from "../tools/memo/use-constant.ts";
 import { createRuntimeOnlyContext } from "../tools/runtime-only-context/mod.tsx";
 
-// deno-lint-ignore no-explicit-any
-type Any = any;
-type EmptyParams = [];
-
-type ReactStoreConstructor<Instance> = NewableDependencyKey<
-  EmptyParams,
-  Instance
->;
+type ReactStoreConstructor<Instance> = NewableDependencyKey<[], Instance>;
 
 interface ReactStoreContainer {
-  readonly KeepAlive: <Constructor extends ReactStoreConstructor<Any>>(
+  // deno-lint-ignore no-explicit-any
+  readonly KeepAlive: <Constructor extends ReactStoreConstructor<any>>(
     Store: Constructor,
   ) => void;
   readonly Provider: ReactStoreRootProvider;
-  readonly clone: <Constructor extends ReactStoreConstructor<Any>>(
+  // deno-lint-ignore no-explicit-any
+  readonly clone: <Constructor extends ReactStoreConstructor<any>>(
     Store: Constructor,
   ) => Constructor;
   readonly useClone: <Instance>(
@@ -63,8 +58,8 @@ export const ReactStoreContainer = createReactStoreContainer();
 
 function createReactStoreContainer(): ReactStoreContainer {
   const descriptors = new WeakMap<
-    ReactStoreConstructor<Any>,
-    ReactStoreDescriptor<Any>
+    ReactStoreConstructor<unknown>,
+    ReactStoreDescriptor<unknown>
   >();
   const [useRootHost, RootHostProvider] = createRuntimeOnlyContext<
     DependencyRootHost<ReactStoreRoot>
@@ -90,8 +85,10 @@ function createReactStoreContainer(): ReactStoreContainer {
       return <RootHostProvider value={root}>{children}</RootHostProvider>;
     },
     clone(Store) {
-      const original: Any = descriptors.get(Store)?.original ?? Store;
-      const clone: Any = class ReactStoreClone extends original {};
+      // deno-lint-ignore no-explicit-any
+      const original: any = descriptors.get(Store)?.original ?? Store;
+      // deno-lint-ignore no-explicit-any
+      const clone: any = class ReactStoreClone extends original {};
       descriptors.set(clone, { original });
       return clone;
     },
@@ -117,7 +114,10 @@ function createReactStoreContainer(): ReactStoreContainer {
 
   function emplaceReactStoreDescriptor<Instance>(
     Store: ReactStoreConstructor<Instance>,
-  ): ReactStoreDescriptor<Instance> {
+  ): ReactStoreDescriptor<Instance>;
+  function emplaceReactStoreDescriptor(
+    Store: ReactStoreConstructor<unknown>,
+  ): ReactStoreDescriptor<unknown> {
     return emplaceMap(descriptors, Store, { insert: () => ({}) });
   }
 }
