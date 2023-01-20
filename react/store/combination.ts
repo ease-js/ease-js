@@ -55,23 +55,22 @@ export function defineCombination<Combination extends AnyCombination>(
 ):
   | BehaviorSubjectCombinationCreator<Readonly<Combination>>
   | BehaviorSubjectCombinationCreator<unknown> {
+  const createCombination: BehaviorSubjectStoreCreator<unknown> =
+    function createCombination(host) {
+      const subject = new BehaviorSubject<unknown>(undefined);
+      const stores = creators.map((create): BehaviorSubject<unknown> => {
+        return host.call(create);
+      });
+      const observable = selector
+        ? combineLatest(stores as ObservableInputTuple<Combination>, selector)
+        : combineLatest(stores);
+      observable.subscribe(subject);
+      return subject;
+    };
+
   return Object.assign(ReactStoreContainer.mixin(createCombination), {
     useCombination,
   });
-
-  function createCombination(): BehaviorSubject<unknown> {
-    const subject = new BehaviorSubject<unknown>(undefined);
-    const observable = selector
-      ? combineLatest<Combination, unknown>(
-        creators as ObservableInputTuple<Combination>,
-        selector,
-      )
-      : combineLatest<Combination>(
-        creators as ObservableInputTuple<Combination>,
-      );
-    observable.subscribe(subject);
-    return subject;
-  }
 }
 
 function useCombination<Result>(
