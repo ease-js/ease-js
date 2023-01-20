@@ -43,29 +43,29 @@ export interface BehaviorSubjectCombinationCreatorMixins {
 }
 
 export function defineCombination<Combination extends AnyCombination>(
-  creators: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
+  deps: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
 ): BehaviorSubjectCombinationCreator<Readonly<Combination>>;
 export function defineCombination<Combination extends AnyCombination, Result>(
-  creators: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
+  deps: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
   selector: (...combination: Combination) => Result,
 ): BehaviorSubjectCombinationCreator<Result>;
 export function defineCombination<Combination extends AnyCombination>(
-  creators: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
+  deps: readonly [...BehaviorSubjectStoreCreatorInputTuple<Combination>],
   selector?: (...combination: Combination) => unknown,
 ):
   | BehaviorSubjectCombinationCreator<Readonly<Combination>>
   | BehaviorSubjectCombinationCreator<unknown> {
-  const createCombination: BehaviorSubjectStoreCreator<unknown> =
+  const createCombination: ReactStoreCreator<BehaviorSubject<unknown>> =
     function createCombination(host) {
-      const subject = new BehaviorSubject<unknown>(undefined);
-      const stores = creators.map((create): BehaviorSubject<unknown> => {
-        return host.call(create);
+      const dest = new BehaviorSubject<unknown>(undefined);
+      const sources = deps.map((dep): BehaviorSubject<unknown> => {
+        return host.call(dep);
       });
       const observable = selector
-        ? combineLatest(stores as ObservableInputTuple<Combination>, selector)
-        : combineLatest(stores);
-      observable.subscribe(subject);
-      return subject;
+        ? combineLatest(sources as ObservableInputTuple<Combination>, selector)
+        : combineLatest(sources);
+      observable.subscribe(dest);
+      return dest;
     };
 
   return Object.assign(ReactStoreContainer.mixin(createCombination), {
