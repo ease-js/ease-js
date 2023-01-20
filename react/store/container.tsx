@@ -117,7 +117,9 @@ function createReactStoreContainer(): ReactStoreContainer {
       return Object.assign(create, mixins);
     },
     useClone(create) {
-      return container.useInstance(useConstant(() => container.clone(create)));
+      return container.useInstance(
+        useConstant(() => container.Weaken(container.clone(create))),
+      );
     },
     useInstance(create) {
       const root = useRootHost();
