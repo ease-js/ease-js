@@ -15,7 +15,7 @@
  * A    B
  * ```
  *
- * 当存在共享依赖时，依赖的引用关系会复杂一些，例如下方示例中，左侧时挂载树、右侧是引用关系：
+ * 当存在共享依赖时，依赖的引用关系会复杂一些，例如下方示例中，左侧是挂载树、右侧是引用关系：
  *
  * ```plain
  *   RO_OT          RO_OT
@@ -169,13 +169,13 @@
  *
  * ```ts
  * const root = new Dependency(...);
- * const demoDependencyDescriptor = { ... };
+ * const DemoDescriptor = { ... };
  *
  * export function useWeakDependency() {
  *   const [handle] = React.useState((): WeakDependencyHandle => ({}));
  *   const [dependency] = React.useState(() => {
- *     const instance = root.link(demoDependencyDescriptor);
- *     root.weaken(demoDependencyDescriptor.key, hande);
+ *     const instance = root.link(DemoDescriptor);
+ *     root.weaken(DemoDescriptor.key, handle);
  *     return instance;
  *   });
  *   return dependency;
@@ -194,8 +194,8 @@ import { revoke } from "../tools/revocable.ts";
 const NeverScope = Symbol("NeverScope");
 
 /**
- * 对一项依赖的描述，相对于仅包含依赖自身信息的 `interface DependencyInit` ，此接口还包含
- * `hoist` 等与外部关系的限制条件的描述。
+ * 对一项依赖的描述，相对于仅包含依赖自身信息的 {@link DependencyInit} ，此接口还包含
+ * {@link DependencyDescriptor.hoist|hoist} 等与外部关系的限制条件的描述。
  */
 export interface DependencyDescriptor<Key, Scope, Value = unknown>
   extends DependencyInit<Key, Scope, Value> {
@@ -215,7 +215,7 @@ export interface DependencyDescriptor<Key, Scope, Value = unknown>
  */
 export interface DependencyHoistConfig<Scope> {
   /**
-   * 当此依赖被安装时，如果指定的提升范围 scope 不存在，是否接受提升到根节点。
+   * 当此依赖被安装时，如果指定的提升范围 {@link scope} 不存在，是否接受提升到根节点。
    *
    * @default true
    */
@@ -232,19 +232,20 @@ export interface DependencyHoistConfig<Scope> {
 export interface DependencyInit<Key, Scope, Value = unknown> {
   /**
    * 当前节点保存的具有实际使用价值的内容，提供给引用此依赖的其他依赖使用。只有首次访问
-   * `dependency.value` 时会调用此函数进行创建。
+   * {@link Dependency.value} 时会调用此函数进行创建。
    */
   readonly load: (dependency: Dependency<Key, Scope, Value>) => Value;
   /**
-   * 当前节点的依赖共享范围的句柄。假如后代依赖想要在此节点共享依赖，则需要指定同一个 scope
-   * 取值才能成功安装在此节点下。
+   * 当前节点的依赖共享范围的句柄。假如后代依赖想要在此节点共享依赖，则需要指定同一个
+   * {@link DependencyHoistConfig.scope|scope} 取值才能成功安装在此节点下。
    *
    * @description
    * 对于非根节点的依赖，不配置此项、或者传入 `null` 与 `undefined` 则不允许任何共享依赖安装在此处。
    */
   readonly scope?: Scope | null;
   /**
-   * 当前节点被回收后，调用此函数进行清理。如果 `load()` 未曾被调用过，则不会执行 `unload()` 。
+   * 当前节点被回收后，调用此函数进行清理。如果 {@link load|load()} 未曾被调用，则不会执行
+   * {@link unload|unload()} 。
    */
   readonly unload?: (value: Value) => void;
 }
@@ -276,7 +277,7 @@ export class Dependency<Key, Scope, Value = unknown> {
    */
   #referrers: Set<Dependency<Key, Scope>> | undefined;
   /**
-   * 当前节点的 scope ，用于后代节点选择共享依赖的边界范围。
+   * 当前节点的 {@link DependencyInit.scope|scope} ，用于后代节点选择共享依赖的边界范围。
    */
   #scope: Scope | typeof NeverScope;
   /**
