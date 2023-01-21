@@ -1,6 +1,6 @@
 import {
-  assertEquals,
   AssertionError,
+  assertStrictEquals,
   assertThrows,
 } from "std/testing/asserts.ts";
 import { revoke } from "./revocable.ts";
@@ -12,7 +12,7 @@ Deno.test("function revoke()", async (t): Promise<void> => {
     () => {
       const testObj = {};
 
-      assertEquals(revoke(testObj), true);
+      assertStrictEquals(revoke(testObj), true);
     },
   );
 
@@ -21,8 +21,8 @@ Deno.test("function revoke()", async (t): Promise<void> => {
     () => {
       const testObj = {};
 
-      assertEquals(revoke(testObj), true);
-      assertEquals(revoke(testObj), false);
+      assertStrictEquals(revoke(testObj), true);
+      assertStrictEquals(revoke(testObj), false);
     },
   );
 
@@ -32,8 +32,8 @@ Deno.test("function revoke()", async (t): Promise<void> => {
     () => {
       const testObj = {};
 
-      assertEquals(revoke(testObj), true);
-      assertEquals(revoke.has(testObj), true);
+      assertStrictEquals(revoke(testObj), true);
+      assertStrictEquals(revoke.has(testObj), true);
     },
   );
 
@@ -42,7 +42,7 @@ Deno.test("function revoke()", async (t): Promise<void> => {
     () => {
       const outObj = {};
 
-      assertEquals(revoke.has(outObj), false);
+      assertStrictEquals(revoke.has(outObj), false);
     },
   );
 
@@ -52,7 +52,7 @@ Deno.test("function revoke()", async (t): Promise<void> => {
     () => {
       const testObj = {};
 
-      assertEquals(revoke(testObj), true);
+      assertStrictEquals(revoke(testObj), true);
       assertThrows(() => {
         revoke.assert(testObj);
       }, AssertionError);
@@ -64,7 +64,7 @@ Deno.test("function revoke()", async (t): Promise<void> => {
     () => {
       const outObj = {};
 
-      assertEquals(revoke.assert(outObj), undefined);
+      assertStrictEquals(revoke.assert(outObj), undefined);
     },
   );
 });

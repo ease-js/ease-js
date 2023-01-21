@@ -16,6 +16,12 @@
   "css.validate": false,
   "deno.codeLens.test": true,
   "deno.enable": true,
+  "deno.codeLens.testArgs": [
+    "--allow-all",
+    "--no-check",
+    "--v8-flags=--expose-gc"
+  ],
+  "deno.testing.args": ["--allow-all", "--v8-flags=--expose-gc"],
   "editor.codeActionsOnSave": {
     "source.fixAll": true
   },
