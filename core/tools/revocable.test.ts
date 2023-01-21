@@ -1,4 +1,8 @@
-import { assertEquals, assertThrows } from "std/testing/asserts.ts";
+import {
+  assertEquals,
+  AssertionError,
+  assertThrows,
+} from "std/testing/asserts.ts";
 import { revoke } from "./revocable.ts";
 
 Deno.test("function revoke()", async (t): Promise<void> => {
@@ -44,23 +48,23 @@ Deno.test("function revoke()", async (t): Promise<void> => {
 
   // revoke.assert() tests
   await t.step(
-    "should not throw an assertion and return undefined if some object is revoked by revoke()",
+    "should throw an assertion and return undefined if some object is revoked by revoke()",
     () => {
       const testObj = {};
 
       assertEquals(revoke(testObj), true);
-      assertEquals(revoke.assert(testObj), undefined);
+      assertThrows(() => {
+        revoke.assert(testObj);
+      }, AssertionError);
     },
   );
 
   await t.step(
-    "should throw an assertion if some object is not revoked by revoke()",
+    "should not throw an assertion if some object is not revoked by revoke()",
     () => {
       const outObj = {};
 
-      assertThrows(() => {
-        revoke.assert(outObj);
-      });
+      assertEquals(revoke.assert(outObj), undefined);
     },
   );
 });

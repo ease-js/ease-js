@@ -40,7 +40,7 @@ function createContainer(): RevokeAPI {
   const Revoked = new WeakSet();
 
   const assertUnrevoked: RevokeAPI["assert"] = (input: RevocableType) => {
-    assert(hasBeenRevoked(input), "Cannot access revoked object");
+    assert(!hasBeenRevoked(input), "Cannot access revoked object");
   };
 
   const hasBeenRevoked: RevokeAPI["has"] = (input: RevocableType) => {
