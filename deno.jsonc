@@ -2,6 +2,7 @@
   "importMap": "import-map.json",
   "tasks": {
     "clean": "rm -rf .coverage.local",
-    "test-coverage": "deno task clean && deno test --coverage=.coverage.local && deno coverage .coverage.local"
+    "test": "deno test --v8-flags=--expose-gc",
+    "test-coverage": "deno task clean && deno test --coverage=.coverage.local --v8-flags=--expose-gc && deno coverage .coverage.local"
   }
 }
