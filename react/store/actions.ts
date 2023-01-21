@@ -1,31 +1,37 @@
+import { destructor } from "../../core.ts";
 import type {
   ReactStoreCreator,
   ReactStoreCreatorMixins,
+  ReactStoreCreatorWithDestructor,
 } from "./container.tsx";
 import { store } from "./container.tsx";
 
 // deno-lint-ignore no-explicit-any
 type AnyStores = readonly any[];
 
-export interface ReactActionsCreator<Actions>
-  extends ReactStoreCreator<Actions>, ReactStoreCreatorMixins {}
+interface AnyActions {
+  readonly [destructor]?: () => void;
+}
+
+export interface ReactActionsCreator<Actions extends AnyActions>
+  extends ReactStoreCreatorWithDestructor<Actions>, ReactStoreCreatorMixins {}
 
 export function defineActions<Stores extends AnyStores>(
   deps: readonly [
     ...{ [Index in keyof Stores]: ReactStoreCreator<Stores[Index]> },
   ],
 ): {
-  define<Actions>(
+  define<Actions extends AnyActions>(
     init: (...stores: Stores) => Actions,
   ): ReactActionsCreator<Actions>;
 } {
   return {
-    define<Actions>(init: (...stores: Stores) => Actions) {
-      const createActions: ReactStoreCreator<Actions> = function createActions(
-        host,
-      ) {
-        return Reflect.apply(init, null, deps.map((dep) => host.call(dep)));
-      };
+    define<Actions extends AnyActions>(init: (...stores: Stores) => Actions) {
+      const createActions: ReactStoreCreatorWithDestructor<Actions> =
+        function createActions(host) {
+          return Reflect.apply(init, null, deps.map((dep) => host.call(dep)));
+        };
+      createActions[destructor] = (actions) => actions[destructor]?.();
 
       return store.mixin(createActions);
     },
