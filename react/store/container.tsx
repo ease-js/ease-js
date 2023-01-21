@@ -54,6 +54,11 @@ interface ReactStoreCreatorMixins {
     this: Creator,
     options?: ReactStoreCloneOptions,
   ): Creator;
+  // deno-lint-ignore no-explicit-any
+  decorate<Creator extends ReactStoreCreator<any>>(
+    this: Creator,
+    options: ReactStoreDecorateOptions,
+  ): Creator;
   useClone<Value>(this: ReactStoreCreatorWithDestructor<Value>): Value;
   useInstance<Value>(this: ReactStoreCreatorWithDestructor<Value>): Value;
 }
@@ -117,6 +122,9 @@ function createReactStoreContainer(): ReactStoreContainer {
   const mixins: ReactStoreCreatorMixins = {
     clone(options) {
       return clone(this, options);
+    },
+    decorate(options) {
+      return Decorate(options)(this);
     },
     useClone() {
       return useClone(this);
