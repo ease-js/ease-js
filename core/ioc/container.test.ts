@@ -6,7 +6,11 @@ import {
   assertStrictEquals,
   assertThrows,
 } from "std/testing/asserts.ts";
-import type { DependencyHost, WeakDependencyHandle } from "./container.ts";
+import type {
+  DependencyContainerHost,
+  DependencyHost,
+  WeakDependencyHandle,
+} from "./container.ts";
 import { createDependencyContainer, destructor } from "./container.ts";
 
 // 设置 --v8-flags=--expose-gc 即可启用此 API
@@ -35,6 +39,31 @@ abstract class TestCounter {
   }
 }
 
+Deno.test("createDependencyContainer(containerHost)", async (t) => {
+  await t.step(
+    "should allow `containerHost.createDescriptor(descriptor)` to rewrite any dependency descriptors",
+    () => {
+      const key = () => {};
+      const unload = spy();
+      const containerHost = {
+        createDescriptor: spy((descriptor) => {
+          return ({ ...descriptor, unload });
+        }),
+      } satisfies DependencyContainerHost;
+
+      const container = createDependencyContainer(containerHost);
+      const root = container.createRoot(TestRoot);
+
+      assertSpyCalls(containerHost.createDescriptor, 1);
+      root.call(key);
+      assertSpyCalls(unload, 0);
+      assertSpyCalls(containerHost.createDescriptor, 2);
+      root.unlink(key);
+      assertSpyCalls(unload, 1);
+    },
+  );
+});
+
 Deno.test("DependencyContainer: container", async (t) => {
   const container = createDependencyContainer({
     createDescriptor: (descriptor) => descriptor,
@@ -46,6 +75,10 @@ Deno.test("DependencyContainer: container", async (t) => {
       () => {
         const decorate = container.Hoist(true);
         const root = container.createRoot(TestRoot);
+
+        // 装饰器需要返回经过装饰后的 class 或是 function 以便适应多种写法
+        class Noop {}
+        assertStrictEquals(decorate(Noop), Noop);
 
         // 测试装饰器是否可复用
         @decorate
@@ -112,6 +145,10 @@ Deno.test("DependencyContainer: container", async (t) => {
 
         const key = () => ({});
         container.Hoist(TestCounter)(key);
+
+        // 装饰器需要返回经过装饰后的 class 或是 function 以便适应多种写法
+        class Noop {}
+        assertStrictEquals(decorate(Noop), Noop);
 
         // 测试装饰器是否可复用
         @decorate
