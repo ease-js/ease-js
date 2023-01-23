@@ -1,7 +1,7 @@
 import { assertStrictEquals } from "std/testing/asserts.ts";
 import { emplaceMap } from "./emplace.ts";
 
-Deno.test("function emplaceMap()", async (t) => {
+Deno.test("emplaceMap(map, key, handlers)", async (t) => {
   await t.step(
     "should insert a new entry if none of the existing entries match the given key",
     () => {

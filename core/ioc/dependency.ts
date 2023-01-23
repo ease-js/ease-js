@@ -73,17 +73,16 @@
  *
  * 当你通过 `new Dependency(init)` 创建一个 Dependency 实例时，此实例一定是挂载树的根节点；换句话说，你无法通过
  * `new Dependency(init)` 创建子依赖之后连通到已经存在的挂载树与引用关系图中，这是为了确保
- * Dependency 实例的内部数据具备充足的安全性，保障内部依赖回收机制不会轻易收到外界影响。
+ * Dependency 实例的内部数据具备充足的安全性，保障内部依赖回收机制不会轻易受到外界影响。
  *
- * Dependency 提供了 `link()` 与 `unlink()` 两个公共方法分别用于加载与回收依赖，每一个依赖也都由一个
+ * Dependency 提供了 `link()` 与 `unlink()` 两个公共方法分别用于添加与删除依赖的引用关系，
+ * Dependency 将在这两个方法内部自动完成依赖的加载与回收。由于每一个新增的子依赖都由一个新的
  * Dependency 实例来表示，由此可构建出一个树状的结构，用于描述与管理你的程序的依赖关系。
  *
- * ### 创建依赖
+ * ### 描述依赖
  *
- * 调用 `parent.link(descriptor)` 需要传入一个描述依赖信息的对象 `descriptor` 、然后返回一个新的
- * Dependency 实例 `child` 储存子依赖的信息。
- *
- * `descriptor` 的类型为 `interface DependencyDescriptor` ，它存在 `key` 与 `load`
+ * 调用 `parent.link(descriptor)` 添加引用关系时，需要传入一个描述依赖信息的对象
+ * `descriptor` ，其类型为 `interface DependencyDescriptor` ，它存在 `key` 与 `load`
  * 两个必传字段，分别用于标识依赖与加载提供外界使用的值：
  *
  * - `key` 相同的 `descriptor` 总是描述同一个依赖，因此在创建依赖之后，依然可以重复调用
@@ -93,7 +92,7 @@
  *   `descriptor` 中存在 `unload` 字段，那么此时 `unload(child.value)`
  *   会被调用，因此如果有需要，你可以将副作用的清理逻辑放在此函数中。
  *
- * ### 引用依赖
+ * ### 共享依赖
  *
  * `interface DependencyDescriptor` 存在一个可选的 `hoist` 字段，此字段决定了依赖的查找与安装策略：
  *
@@ -327,7 +326,7 @@ export class Dependency<Key, Scope, Value = unknown> {
   }
 
   /**
-   * 加载依赖。
+   * 添加依赖引用关系，期间将自动完成依赖的加载。
    */
   link<ChildValue>(
     descriptor: DependencyDescriptor<Key, Scope, ChildValue>,
@@ -350,7 +349,7 @@ export class Dependency<Key, Scope, Value = unknown> {
   }
 
   /**
-   * 回收依赖。
+   * 删除依赖引用关系，期间将自动完成依赖的回收。
    */
   unlink(key: Key): void {
     revoke.assert(this);
@@ -409,7 +408,7 @@ export class Dependency<Key, Scope, Value = unknown> {
   }
 
   /**
-   * 将已存在的依赖转为弱引用，如果传入 `null` 则恢复为强引用。
+   * 将已存在的依赖引用关系转为弱引用，如果传入 `null` 则恢复为强引用。
    */
   weaken(key: Key, handle: WeakDependencyHandle | null): void {
     revoke.assert(this);

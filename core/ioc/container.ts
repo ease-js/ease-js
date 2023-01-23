@@ -236,7 +236,7 @@ export interface CallableDependencyKeyWithDestructor<
  */
 export interface DependencyContainer {
   /**
-   * 设置依赖提升共享配置的装饰器。
+   * 设置依赖提升共享配置 {@link DependencyDescriptor.hoist|hoist} 的装饰器。
    *
    * @param scope 需要提升的范围，默认为 `true` 。
    *
