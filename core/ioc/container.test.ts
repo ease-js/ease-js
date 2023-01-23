@@ -1,11 +1,6 @@
-import { assertSpyCallArgs, assertSpyCalls, spy } from "std/testing/mock.ts";
-import {
-  assert,
-  AssertionError,
-  assertNotStrictEquals,
-  assertStrictEquals,
-  assertThrows,
-} from "std/testing/asserts.ts";
+import { asserts } from "../deps.ts";
+import { mock } from "../dev-deps.ts";
+
 import type {
   DependencyContainerHost,
   DependencyHost,
@@ -44,9 +39,9 @@ Deno.test("createDependencyContainer(containerHost)", async (t) => {
     "should allow `containerHost.createDescriptor(descriptor)` to rewrite any dependency descriptors",
     () => {
       const key = () => {};
-      const unload = spy();
+      const unload = mock.spy();
       const containerHost = {
-        createDescriptor: spy((descriptor) => {
+        createDescriptor: mock.spy((descriptor) => {
           return ({ ...descriptor, unload });
         }),
       } satisfies DependencyContainerHost;
@@ -54,12 +49,12 @@ Deno.test("createDependencyContainer(containerHost)", async (t) => {
       const container = createDependencyContainer(containerHost);
       const root = container.createRoot(TestRoot);
 
-      assertSpyCalls(containerHost.createDescriptor, 1);
+      mock.assertSpyCalls(containerHost.createDescriptor, 1);
       root.call(key);
-      assertSpyCalls(unload, 0);
-      assertSpyCalls(containerHost.createDescriptor, 2);
+      mock.assertSpyCalls(unload, 0);
+      mock.assertSpyCalls(containerHost.createDescriptor, 2);
       root.unlink(key);
-      assertSpyCalls(unload, 1);
+      mock.assertSpyCalls(unload, 1);
     },
   );
 });
@@ -78,7 +73,7 @@ Deno.test("DependencyContainer: container", async (t) => {
 
         // 装饰器需要返回经过装饰后的 class 或是 function 以便适应多种写法
         class Noop {}
-        assertStrictEquals(decorate(Noop), Noop);
+        asserts.assertStrictEquals(decorate(Noop), Noop);
 
         // 测试装饰器是否可复用
         @decorate
@@ -90,9 +85,9 @@ Deno.test("DependencyContainer: container", async (t) => {
 
         const dep2 = root.call((host) => host.new(CounterB));
         const dep3 = root.call((host) => host.new(CounterB));
-        assertStrictEquals(dep0, dep1);
-        assertStrictEquals(dep2, dep3);
-        assert(dep0 instanceof CounterA && dep2 instanceof CounterB);
+        asserts.assertStrictEquals(dep0, dep1);
+        asserts.assertStrictEquals(dep2, dep3);
+        asserts.assert(dep0 instanceof CounterA && dep2 instanceof CounterB);
 
         // 外层装饰器执行时机靠后，因此可以覆盖前面的装饰器的配置
         @container.Hoist(false)
@@ -100,24 +95,30 @@ Deno.test("DependencyContainer: container", async (t) => {
         class CounterC extends TestCounter {}
         const dep4 = root.call((host) => host.new(CounterC));
         const dep5 = root.call((host) => host.new(CounterC));
-        assertNotStrictEquals(dep4, dep5);
-        assert(dep4 instanceof CounterC && dep5 instanceof CounterC);
+        asserts.assertNotStrictEquals(dep4, dep5);
+        asserts.assert(dep4 instanceof CounterC && dep5 instanceof CounterC);
 
         // 复杂的 hoist 配置
         @container.Hoist(TestRoot)
         class CounterD extends TestCounter {}
         const dep6 = root.call((host) => host.new(CounterD));
         const dep7 = root.call((host) => host.new(CounterD));
-        assertStrictEquals(dep6, dep7);
-        assert(dep6 instanceof CounterD && dep7 instanceof CounterD);
+        asserts.assertStrictEquals(dep6, dep7);
+        asserts.assert(dep6 instanceof CounterD && dep7 instanceof CounterD);
 
         const keyA = (host: DependencyHost) => host.new(CounterE);
         @container.Hoist(keyA)
         class CounterE extends TestCounter {}
         const dep8 = root.call(keyA);
-        assertStrictEquals(dep8, dep8.host.new(CounterE));
-        assertStrictEquals(dep8, dep8.host.call((host) => host.new(CounterE)));
-        assertNotStrictEquals(dep8, root.call((host) => host.new(CounterE)));
+        asserts.assertStrictEquals(dep8, dep8.host.new(CounterE));
+        asserts.assertStrictEquals(
+          dep8,
+          dep8.host.call((host) => host.new(CounterE)),
+        );
+        asserts.assertNotStrictEquals(
+          dep8,
+          root.call((host) => host.new(CounterE)),
+        );
       },
     );
 
@@ -128,7 +129,7 @@ Deno.test("DependencyContainer: container", async (t) => {
 
         @container.Hoist()
         class CounterA extends TestCounter {}
-        assertStrictEquals(
+        asserts.assertStrictEquals(
           root.call((host) => host.new(CounterA)),
           root.call((host) => host.new(CounterA)),
         );
@@ -148,7 +149,7 @@ Deno.test("DependencyContainer: container", async (t) => {
 
         // 装饰器需要返回经过装饰后的 class 或是 function 以便适应多种写法
         class Noop {}
-        assertStrictEquals(decorate(Noop), Noop);
+        asserts.assertStrictEquals(decorate(Noop), Noop);
 
         // 测试装饰器是否可复用
         @decorate
@@ -159,12 +160,12 @@ Deno.test("DependencyContainer: container", async (t) => {
         const dep1 = root.call((host) => host.new(CounterB));
 
         for (const dep of [dep0, dep1]) {
-          assertNotStrictEquals(root.call(key), dep.host.call(key));
-          assertStrictEquals(
+          asserts.assertNotStrictEquals(root.call(key), dep.host.call(key));
+          asserts.assertStrictEquals(
             dep.host.call(key),
             dep.host.call((host) => host.call(key)),
           );
-          assertStrictEquals(
+          asserts.assertStrictEquals(
             dep.host.call((host) => host.call(key)),
             dep.host.call((host) => host.call(key)),
           );
@@ -176,8 +177,8 @@ Deno.test("DependencyContainer: container", async (t) => {
         class CounterC extends TestCounter {}
         const dep2 = root.call((host) => host.new(CounterC));
         // 没有匹配的 scope ，默认 hoist 到 root
-        assertStrictEquals(root.call(key), dep2.host.call(key));
-        assertStrictEquals(
+        asserts.assertStrictEquals(root.call(key), dep2.host.call(key));
+        asserts.assertStrictEquals(
           dep2.host.call(key),
           dep2.host.call((host) => host.call(key)),
         );
@@ -187,7 +188,7 @@ Deno.test("DependencyContainer: container", async (t) => {
 
   await t.step("container.createRoot(Root, ...params)", async (t) => {
     await t.step("should create a new `Dependency` instance", () => {
-      assertNotStrictEquals(
+      asserts.assertNotStrictEquals(
         container.createRoot(TestRoot),
         container.createRoot(TestRoot),
       );
@@ -196,14 +197,14 @@ Deno.test("DependencyContainer: container", async (t) => {
     await t.step(
       "should not construct `Root` until `deref()` is called",
       () => {
-        const Root = spy();
+        const Root = mock.spy();
         const root = container.createRoot(
           Root as unknown as (new () => unknown),
         );
-        assertSpyCalls(Root, 0);
-        assert(root.deref() instanceof Root);
-        assertStrictEquals(root.deref(), root.deref());
-        assertSpyCalls(Root, 1);
+        mock.assertSpyCalls(Root, 0);
+        asserts.assert(root.deref() instanceof Root);
+        asserts.assertStrictEquals(root.deref(), root.deref());
+        mock.assertSpyCalls(Root, 1);
       },
     );
   });
@@ -218,8 +219,8 @@ Deno.test("DependencyRootHost: root", async (t) => {
     const root = container.createRoot(TestRoot);
 
     await t.step("should return the instance of `Root`", () => {
-      assert(root.deref() instanceof TestRoot);
-      assertStrictEquals(root.deref(), root.deref());
+      asserts.assert(root.deref() instanceof TestRoot);
+      asserts.assertStrictEquals(root.deref(), root.deref());
     });
   });
 
@@ -233,8 +234,11 @@ Deno.test("DependencyRootHost: root", async (t) => {
 
       root.enforce(Counter, instance);
       root.enforce(Counter, instance);
-      assertStrictEquals(root.new(Counter), instance);
-      assertStrictEquals(root.call((host) => host.new(Counter)), instance);
+      asserts.assertStrictEquals(root.new(Counter), instance);
+      asserts.assertStrictEquals(
+        root.call((host) => host.new(Counter)),
+        instance,
+      );
     });
 
     await t.step(
@@ -243,12 +247,12 @@ Deno.test("DependencyRootHost: root", async (t) => {
         class Counter extends TestCounter {}
         const instance = new Counter(root);
 
-        assertNotStrictEquals(root.new(Counter), instance);
-        assertStrictEquals(root.new(Counter), root.new(Counter));
-        assertThrows(() => {
+        asserts.assertNotStrictEquals(root.new(Counter), instance);
+        asserts.assertStrictEquals(root.new(Counter), root.new(Counter));
+        asserts.assertThrows(() => {
           root.enforce(Counter, instance);
-        }, AssertionError);
-        assertNotStrictEquals(root.new(Counter), instance);
+        }, asserts.AssertionError);
+        asserts.assertNotStrictEquals(root.new(Counter), instance);
       },
     );
   });
@@ -266,25 +270,25 @@ Deno.test("DependencyHost: host", async (t) => {
       const root = container.createRoot(TestRoot);
 
       class Counter extends TestCounter {
-        static [destructor] = spy((instance: Counter): void => {
-          assertThrows(() => {
+        static [destructor] = mock.spy((instance: Counter): void => {
+          asserts.assertThrows(() => {
             instance.host.unlink(() => {});
-          }, AssertionError);
-          assertThrows(() => {
+          }, asserts.AssertionError);
+          asserts.assertThrows(() => {
             instance.host.call(() => {});
-          }, AssertionError);
-          assertThrows(() => {
+          }, asserts.AssertionError);
+          asserts.assertThrows(() => {
             instance.host.new(class extends TestCounter {});
-          }, AssertionError);
-          assertThrows(() => {
+          }, asserts.AssertionError);
+          asserts.assertThrows(() => {
             instance.host.weaken(() => {}, null);
-          }, AssertionError);
+          }, asserts.AssertionError);
         });
       }
 
       root.new(Counter);
       root.unlink(Counter);
-      assertSpyCalls(Counter[destructor], 1);
+      mock.assertSpyCalls(Counter[destructor], 1);
     },
   );
 
@@ -294,53 +298,59 @@ Deno.test("DependencyHost: host", async (t) => {
     await t.step(
       "should create a reference to the dependency and return the loaded value",
       () => {
-        const key = spy(() => ({}));
+        const key = mock.spy(() => ({}));
 
-        assertStrictEquals(root.call(key), key.calls[0].returned);
-        assertStrictEquals(root.call(key), root.call(key));
-        assertSpyCalls(key, 1);
+        asserts.assertStrictEquals(root.call(key), key.calls[0].returned);
+        asserts.assertStrictEquals(root.call(key), root.call(key));
+        mock.assertSpyCalls(key, 1);
       },
     );
 
     await t.step(
       "should only use the `params` when loading the dependency for the first time",
       () => {
-        const callback = spy(() => ({}));
+        const callback = mock.spy(() => ({}));
         const key = (_host: unknown, callback: () => unknown) => callback();
 
-        assertStrictEquals(root.call(key, callback), root.call(key, callback));
-        assertSpyCalls(callback, 1);
+        asserts.assertStrictEquals(
+          root.call(key, callback),
+          root.call(key, callback),
+        );
+        mock.assertSpyCalls(callback, 1);
       },
     );
 
     await t.step("should use the `key` as the default `scope`", () => {
       const parent = (host: DependencyHost) => host;
-      const child = container.Hoist(parent)(spy(() => ({})));
+      const child = container.Hoist(parent)(mock.spy(() => ({})));
 
-      assertStrictEquals(
+      asserts.assertStrictEquals(
         root.call(parent).call(child),
         root.call(parent).call((host) => host.call(child)),
       );
-      assertSpyCalls(child, 1);
+      mock.assertSpyCalls(child, 1);
 
-      assertNotStrictEquals(root.call(child), root.call(parent).call(child));
-      assertSpyCalls(child, 2);
+      asserts.assertNotStrictEquals(
+        root.call(child),
+        root.call(parent).call(child),
+      );
+      mock.assertSpyCalls(child, 2);
     });
 
     await t.step(
       "should use the `key[destructor]` as the `descriptor.unload` " +
         "that will be invoked after the dependency has been revoked",
       () => {
-        const key = Object.assign(() => ({}), { [destructor]: spy() });
+        const key = Object.assign(() => ({}), { [destructor]: mock.spy() });
 
         const value = root.call(key);
-        assertSpyCalls(key[destructor], 0);
+        mock.assertSpyCalls(key[destructor], 0);
 
         root.unlink(key);
-        assertSpyCalls(key[destructor], 1);
-        assertSpyCallArgs(key[destructor], 0, [value]);
+        mock.assertSpyCalls(key[destructor], 1);
+        mock.assertSpyCallArgs(key[destructor], 0, [value]);
 
-        assertNotStrictEquals(root.call(key), value);
+        asserts.assertNotStrictEquals(root.call(key), value);
       },
     );
   });
@@ -352,14 +362,14 @@ Deno.test("DependencyHost: host", async (t) => {
       "should create a reference to the dependency and return the loaded value",
       () => {
         class Counter extends TestCounter {}
-        assertStrictEquals(root.new(Counter), root.new(Counter));
+        asserts.assertStrictEquals(root.new(Counter), root.new(Counter));
       },
     );
 
     await t.step(
       "should only use the `params` when loading the dependency for the first time",
       () => {
-        const callback = spy(() => ({}));
+        const callback = mock.spy(() => ({}));
         class Counter extends TestCounter {
           constructor(host: DependencyHost, callback: () => void) {
             super(host);
@@ -367,29 +377,29 @@ Deno.test("DependencyHost: host", async (t) => {
           }
         }
 
-        assertStrictEquals(
+        asserts.assertStrictEquals(
           root.new(Counter, callback),
           root.new(Counter, callback),
         );
-        assertSpyCalls(callback, 1);
+        mock.assertSpyCalls(callback, 1);
       },
     );
 
     await t.step("should use the `key` as the default `scope`", () => {
       class parent extends TestCounter {}
-      const child = container.Hoist(parent)(spy(() => ({})));
+      const child = container.Hoist(parent)(mock.spy(() => ({})));
 
-      assertStrictEquals(
+      asserts.assertStrictEquals(
         root.new(parent).host.call(child),
         root.new(parent).host.call((host) => host.call(child)),
       );
-      assertSpyCalls(child, 1);
+      mock.assertSpyCalls(child, 1);
 
-      assertNotStrictEquals(
+      asserts.assertNotStrictEquals(
         root.call(child),
         root.new(parent).host.call(child),
       );
-      assertSpyCalls(child, 2);
+      mock.assertSpyCalls(child, 2);
     });
 
     await t.step(
@@ -397,18 +407,18 @@ Deno.test("DependencyHost: host", async (t) => {
         "that will be invoked after the dependency has been revoked",
       () => {
         class key extends TestCounter {
-          static [destructor] = spy();
+          static [destructor] = mock.spy();
         }
 
         const instance = root.new(key);
-        assert(instance instanceof key);
-        assertSpyCalls(key[destructor], 0);
+        asserts.assert(instance instanceof key);
+        mock.assertSpyCalls(key[destructor], 0);
 
         root.unlink(key);
-        assertSpyCalls(key[destructor], 1);
-        assertSpyCallArgs(key[destructor], 0, [instance]);
+        mock.assertSpyCalls(key[destructor], 1);
+        mock.assertSpyCallArgs(key[destructor], 0, [instance]);
 
-        assertNotStrictEquals(root.new(key), instance);
+        asserts.assertNotStrictEquals(root.new(key), instance);
       },
     );
   });
@@ -426,21 +436,21 @@ Deno.test("DependencyHost: host", async (t) => {
     await t.step(
       "should invoke the destructor after the dependency has been revoked",
       () => {
-        const key = Object.assign(() => ({}), { [destructor]: spy() });
+        const key = Object.assign(() => ({}), { [destructor]: mock.spy() });
 
         const value = root.call(key);
-        assertSpyCalls(key[destructor], 0);
+        mock.assertSpyCalls(key[destructor], 0);
 
         root.unlink(key);
-        assertSpyCalls(key[destructor], 1);
+        mock.assertSpyCalls(key[destructor], 1);
         root.unlink(key);
-        assertSpyCalls(key[destructor], 1);
+        mock.assertSpyCalls(key[destructor], 1);
 
-        assertNotStrictEquals(root.call(key), value);
-        assertSpyCalls(key[destructor], 1);
+        asserts.assertNotStrictEquals(root.call(key), value);
+        mock.assertSpyCalls(key[destructor], 1);
 
         root.unlink(key);
-        assertSpyCalls(key[destructor], 2);
+        mock.assertSpyCalls(key[destructor], 2);
       },
     );
   });
@@ -462,8 +472,8 @@ Deno.test("DependencyHost: host", async (t) => {
           handle = {};
           await waitGC();
 
-          assertNotStrictEquals(root.call(key), value);
-          assertStrictEquals(root.call(key), root.call(key));
+          asserts.assertNotStrictEquals(root.call(key), value);
+          asserts.assertStrictEquals(root.call(key), root.call(key));
         },
       );
     }
@@ -471,7 +481,7 @@ Deno.test("DependencyHost: host", async (t) => {
 });
 
 function waitGC(): Promise<void> {
-  assert(typeof gc === "function");
+  asserts.assert(typeof gc === "function");
   gc();
   return new Promise((resolve) => setTimeout(resolve, 0));
 }

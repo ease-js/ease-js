@@ -1,8 +1,5 @@
-import {
-  AssertionError,
-  assertStrictEquals,
-  assertThrows,
-} from "std/testing/asserts.ts";
+import { asserts } from "../deps.ts";
+
 import { revoke } from "./revocable.ts";
 
 Deno.test("revoke(input)", async (t): Promise<void> => {
@@ -12,7 +9,7 @@ Deno.test("revoke(input)", async (t): Promise<void> => {
     () => {
       const testObj = {};
 
-      assertStrictEquals(revoke(testObj), true);
+      asserts.assertStrictEquals(revoke(testObj), true);
     },
   );
 
@@ -21,8 +18,8 @@ Deno.test("revoke(input)", async (t): Promise<void> => {
     () => {
       const testObj = {};
 
-      assertStrictEquals(revoke(testObj), true);
-      assertStrictEquals(revoke(testObj), false);
+      asserts.assertStrictEquals(revoke(testObj), true);
+      asserts.assertStrictEquals(revoke(testObj), false);
     },
   );
 
@@ -32,8 +29,8 @@ Deno.test("revoke(input)", async (t): Promise<void> => {
       () => {
         const testObj = {};
 
-        assertStrictEquals(revoke(testObj), true);
-        assertStrictEquals(revoke.has(testObj), true);
+        asserts.assertStrictEquals(revoke(testObj), true);
+        asserts.assertStrictEquals(revoke.has(testObj), true);
       },
     );
 
@@ -42,7 +39,7 @@ Deno.test("revoke(input)", async (t): Promise<void> => {
       () => {
         const outObj = {};
 
-        assertStrictEquals(revoke.has(outObj), false);
+        asserts.assertStrictEquals(revoke.has(outObj), false);
       },
     );
   });
@@ -53,10 +50,10 @@ Deno.test("revoke(input)", async (t): Promise<void> => {
       () => {
         const testObj = {};
 
-        assertStrictEquals(revoke(testObj), true);
-        assertThrows(() => {
+        asserts.assertStrictEquals(revoke(testObj), true);
+        asserts.assertThrows(() => {
           revoke.assert(testObj);
-        }, AssertionError);
+        }, asserts.AssertionError);
       },
     );
 
@@ -65,7 +62,7 @@ Deno.test("revoke(input)", async (t): Promise<void> => {
       () => {
         const outObj = {};
 
-        assertStrictEquals(revoke.assert(outObj), undefined);
+        asserts.assertStrictEquals(revoke.assert(outObj), undefined);
       },
     );
   });

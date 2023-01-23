@@ -1,5 +1,5 @@
-import React from "react";
-import { assert } from "std/testing/asserts.ts";
+import { asserts } from "../../../core/deps.ts";
+import { React } from "../../deps.ts";
 
 export interface RuntimeOnlyContextProviderProps<Value> {
   children?: React.ReactNode;
@@ -27,7 +27,7 @@ export function createRuntimeOnlyContext<Value>(
 
   const useContext: () => Value = () => {
     const value = React.useContext(Context);
-    assert(
+    asserts.assert(
       value,
       `Read runtime only context failed, please ensure the provider of "${displayName}" has been mounted`,
     );

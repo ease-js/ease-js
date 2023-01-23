@@ -1,4 +1,5 @@
-import React from "react";
+import { React } from "../deps.ts";
+
 import type {
   CallableDependencyKey,
   DependencyHost,

@@ -184,7 +184,8 @@
  * @module
  */
 
-import { assert, assertExists } from "std/testing/asserts.ts";
+import { asserts } from "../deps.ts";
+
 import { emplaceMap } from "../tools/emplace.ts";
 import { revoke } from "../tools/revocable.ts";
 
@@ -290,8 +291,8 @@ export class Dependency<Key, Scope, Value = unknown> {
 
   constructor(init: DependencyInit<Key, Scope, Value>) {
     const { load, scope, unload } = init;
-    assert(typeof load === "function");
-    assert(unload === undefined || typeof unload === "function");
+    asserts.assert(typeof load === "function");
+    asserts.assert(unload === undefined || typeof unload === "function");
 
     this.#scope = scope ?? NeverScope;
     this.#value = () => {
@@ -317,7 +318,7 @@ export class Dependency<Key, Scope, Value = unknown> {
    */
   get value(): Value {
     revoke.assert(this);
-    assertExists(this.#value, "Dependency not ready yet");
+    asserts.assert(this.#value, "Dependency not ready yet");
     return this.#value();
   }
 

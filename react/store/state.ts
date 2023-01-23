@@ -1,7 +1,6 @@
-import type React from "react";
-import type { Draft, Immutable } from "immer";
-import { produce } from "immer";
-import { BehaviorSubject } from "rxjs";
+import { immer, rxjs } from "../../core/deps.ts";
+import type { React } from "../deps.ts";
+
 import { useConstant } from "../tools/memo/use-constant.ts";
 import type { BehaviorSubjectValueSelector } from "../tools/rxjs/use-behavior-subject-value.ts";
 import {
@@ -22,16 +21,16 @@ export interface ReactStateCreator<State>
 
 export interface ReactStateCreatorMixins {
   useLocalState<State>(this: ReactStateCreator<State>): [
-    state: Immutable<State>,
+    state: immer.Immutable<State>,
     produce: (recipe: ReactStateProduceRecipe<State>) => void,
   ];
   useState<State>(this: ReactStateCreator<State>): [
-    state: Immutable<State>,
+    state: immer.Immutable<State>,
     produce: (recipe: ReactStateProduceRecipe<State>) => void,
   ];
   useState<State, Selection>(
     this: ReactStateCreator<State>,
-    selector: BehaviorSubjectValueSelector<Immutable<State>, Selection>,
+    selector: BehaviorSubjectValueSelector<immer.Immutable<State>, Selection>,
     deps?: React.DependencyList,
   ): [
     state: Selection,
@@ -40,15 +39,16 @@ export interface ReactStateCreatorMixins {
 }
 
 export type ReactStateProduceRecipe<State> = (
-  draft: Draft<State>,
-) => void | Draft<State>;
+  draft: immer.Draft<State>,
+) => void | immer.Draft<State>;
 
 // deno-lint-ignore no-explicit-any
 export type StateOfReactStateInstance<Instance extends ReactState<any>> =
   Instance extends ReactState<infer State> ? State : never;
 
-export class ReactState<State> extends BehaviorSubject<Immutable<State>> {
-  constructor(initialState: Immutable<State>) {
+export class ReactState<State>
+  extends rxjs.BehaviorSubject<immer.Immutable<State>> {
+  constructor(initialState: immer.Immutable<State>) {
     super(initialState);
   }
 
@@ -57,12 +57,12 @@ export class ReactState<State> extends BehaviorSubject<Immutable<State>> {
   }
 
   produce(recipe: ReactStateProduceRecipe<State>): void {
-    this.next(produce(this.getValue(), recipe));
+    this.next(immer.produce(this.getValue(), recipe));
   }
 }
 
 export function defineState<State>(
-  init: Immutable<State>,
+  init: immer.Immutable<State>,
 ): ReactStateCreator<State> {
   const createReactState: ReactStoreCreator<ReactState<State>> =
     function createReactState() {
@@ -76,7 +76,7 @@ export function defineState<State>(
 }
 
 function useLocalState<State>(this: ReactStateCreator<State>): [
-  state: Immutable<State>,
+  state: immer.Immutable<State>,
   produce: (recipe: ReactStateProduceRecipe<State>) => void,
 ] {
   const instance = this.useClone();
@@ -87,12 +87,12 @@ function useLocalState<State>(this: ReactStateCreator<State>): [
 }
 
 function useState<State>(this: ReactStateCreator<State>): [
-  state: Immutable<State>,
+  state: immer.Immutable<State>,
   produce: (recipe: ReactStateProduceRecipe<State>) => void,
 ];
 function useState<State, Selection>(
   this: ReactStateCreator<State>,
-  selector: BehaviorSubjectValueSelector<Immutable<State>, Selection>,
+  selector: BehaviorSubjectValueSelector<immer.Immutable<State>, Selection>,
   deps?: React.DependencyList,
 ): [
   state: Selection,
@@ -100,10 +100,10 @@ function useState<State, Selection>(
 ];
 function useState<State, Selection>(
   this: ReactStateCreator<State>,
-  selector?: BehaviorSubjectValueSelector<Immutable<State>, Selection>,
+  selector?: BehaviorSubjectValueSelector<immer.Immutable<State>, Selection>,
   deps?: React.DependencyList,
 ): [
-  state: Immutable<State> | Selection,
+  state: immer.Immutable<State> | Selection,
   produce: (recipe: ReactStateProduceRecipe<State>) => void,
 ] {
   const instance = this.useInstance();

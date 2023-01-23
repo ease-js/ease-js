@@ -1,6 +1,6 @@
-import type React from "react";
-import type { Observable, ObservableInputTuple, Subscription } from "rxjs";
-import { BehaviorSubject, combineLatest } from "rxjs";
+import { rxjs } from "../../core/deps.ts";
+import type { React } from "../deps.ts";
+
 import { destructor } from "../../core.ts";
 import type { BehaviorSubjectValueSelector } from "../tools/rxjs/use-behavior-subject-value.ts";
 import {
@@ -18,7 +18,7 @@ import { store } from "./container.tsx";
 type AnyCombination = readonly any[];
 
 export type BehaviorSubjectStoreCreator<T> = ReactStoreCreator<
-  BehaviorSubject<T>
+  rxjs.BehaviorSubject<T>
 >;
 
 export type BehaviorSubjectStoreCreatorInputTuple<
@@ -44,10 +44,11 @@ export interface CombinationDestinationCreatorMixins {
   ): Selection;
 }
 
-export class CombinationDestination<Result> extends BehaviorSubject<Result> {
-  readonly #subscription: Subscription;
+export class CombinationDestination<Result>
+  extends rxjs.BehaviorSubject<Result> {
+  readonly #subscription: rxjs.Subscription;
 
-  constructor(source: Observable<Result>) {
+  constructor(source: rxjs.Observable<Result>) {
     super(undefined!);
     this.#subscription = source.subscribe(this);
   }
@@ -74,12 +75,12 @@ export function defineCombination<Combination extends AnyCombination>(
   const createCombination: ReactStoreCreatorWithDestructor<
     CombinationDestination<unknown>
   > = function createCombination(host) {
-    const sources = deps.map((dep): BehaviorSubject<unknown> => {
+    const sources = deps.map((dep): rxjs.BehaviorSubject<unknown> => {
       return host.call(dep);
-    });
+    }) as rxjs.ObservableInputTuple<Combination>;
     const observable = selector
-      ? combineLatest(sources as ObservableInputTuple<Combination>, selector)
-      : combineLatest(sources);
+      ? rxjs.combineLatest(sources, selector)
+      : rxjs.combineLatest(sources);
     return new CombinationDestination(observable);
   };
   createCombination[destructor] = (destination) => destination.unsubscribe();

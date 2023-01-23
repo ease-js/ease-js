@@ -79,7 +79,8 @@
  * @module
  */
 
-import { assert } from "std/testing/asserts.ts";
+import { asserts } from "../deps.ts";
+
 import { emplaceMap } from "../tools/emplace.ts";
 import * as deps from "./dependency.ts";
 
@@ -451,7 +452,7 @@ export function createDependencyContainer(
       enforce(key, value) {
         const descriptor = createDependencyDescriptor(key, () => value);
         const child = dependency.link(descriptor);
-        assert(
+        asserts.assert(
           Object.is(child.value, value),
           "Existing dependency value does not equal to the given one",
         );

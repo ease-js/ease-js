@@ -1,10 +1,10 @@
-import React from "react";
-import type { BehaviorSubject } from "rxjs";
+import type { rxjs } from "../../../core/deps.ts";
+import { React } from "../../deps.ts";
 
 const EmptyArray = [] as const;
 
 export function useBehaviorSubjectValue<Value>(
-  subject: BehaviorSubject<Value>,
+  subject: rxjs.BehaviorSubject<Value>,
 ): Value {
   const params = React.useMemo(() => {
     const getSnapshot = (): Value => subject.getValue();
@@ -24,7 +24,7 @@ export interface BehaviorSubjectValueSelector<Value, Selection> {
 }
 
 export function useBehaviorSubjectValueWithSelector<Value, Selection>(
-  subject: BehaviorSubject<Value>,
+  subject: rxjs.BehaviorSubject<Value>,
   selector: BehaviorSubjectValueSelector<Value, Selection>,
   deps: React.DependencyList = EmptyArray,
 ): Selection {
