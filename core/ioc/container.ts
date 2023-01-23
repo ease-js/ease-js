@@ -311,7 +311,7 @@ export interface DependencyHost {
   /**
    * 解除对指定依赖的引用关系，当其不再被其他地方引用时将会被回收释放。
    */
-  readonly revoke: <Params extends AnyParams, Value>(
+  readonly unlink: <Params extends AnyParams, Value>(
     key: DependencyKeyWithDestructor<Params, Value>,
   ) => void;
   /**
@@ -322,13 +322,13 @@ export interface DependencyHost {
    * 引用过此依赖，则不会有任何效果。
    *
    * 如果传入的 {@link handle} 非空，那么当 {@link handle} 被 GC 垃圾回收时，将自动解除对
-   * {@link key} 依赖的引用关系（相当于 {@link revoke|host.revoke(key)} ）。
+   * {@link key} 依赖的引用关系（相当于 {@link unlink|host.unlink(key)} ）。
    *
    * 对于相同的 {@link key} 重复设置不同的 {@link handle} ，则只有最后一次设置的
    * {@link handle} 会生效。
    *
    * 如果传入的 {@link handle} 为 `null` ，那么 {@link key} 依赖关系将不会被自动解除，只能手动通过
-   * {@link revoke|host.revoke(key)} 解除。
+   * {@link unlink|host.unlink(key)} 解除。
    */
   readonly weaken: <Params extends AnyParams, Value>(
     key: DependencyKeyWithDestructor<Params, Value>,
@@ -431,7 +431,7 @@ export function createDependencyContainer(
         const descriptor = createDependencyDescriptor(key, load);
         return dependency.link(descriptor).value;
       },
-      revoke(key) {
+      unlink(key) {
         dependency.unlink(key);
       },
       weaken(key, handle) {

@@ -8,7 +8,6 @@ import {
 } from "std/testing/asserts.ts";
 import type { DependencyHost, WeakDependencyHandle } from "./container.ts";
 import { createDependencyContainer, destructor } from "./container.ts";
-import { revoke } from "../tools/revocable.ts";
 
 // 设置 --v8-flags=--expose-gc 即可启用此 API
 declare const gc: undefined | (() => void);
@@ -24,21 +23,14 @@ abstract class TestCounter {
   }
 
   get count(): number {
-    revoke.assert(this);
     return this.#count;
   }
 
   get host(): DependencyHost {
-    revoke.assert(this);
     return this.#host;
   }
 
-  destroy(): void {
-    revoke(this);
-  }
-
   increase(): void {
-    revoke.assert(this);
     this.#count += 1;
   }
 }
@@ -239,7 +231,7 @@ Deno.test("DependencyHost: host", async (t) => {
       class Counter extends TestCounter {
         static [destructor] = spy((instance: Counter): void => {
           assertThrows(() => {
-            instance.host.revoke(() => {});
+            instance.host.unlink(() => {});
           }, AssertionError);
           assertThrows(() => {
             instance.host.call(() => {});
@@ -254,7 +246,7 @@ Deno.test("DependencyHost: host", async (t) => {
       }
 
       root.new(Counter);
-      root.revoke(Counter);
+      root.unlink(Counter);
       assertSpyCalls(Counter[destructor], 1);
     },
   );
@@ -307,7 +299,7 @@ Deno.test("DependencyHost: host", async (t) => {
         const value = root.call(key);
         assertSpyCalls(key[destructor], 0);
 
-        root.revoke(key);
+        root.unlink(key);
         assertSpyCalls(key[destructor], 1);
         assertSpyCallArgs(key[destructor], 0, [value]);
 
@@ -375,7 +367,7 @@ Deno.test("DependencyHost: host", async (t) => {
         assert(instance instanceof key);
         assertSpyCalls(key[destructor], 0);
 
-        root.revoke(key);
+        root.unlink(key);
         assertSpyCalls(key[destructor], 1);
         assertSpyCallArgs(key[destructor], 0, [instance]);
 
@@ -384,13 +376,13 @@ Deno.test("DependencyHost: host", async (t) => {
     );
   });
 
-  await t.step("host.revoke(key)", async (t) => {
+  await t.step("host.unlink(key)", async (t) => {
     const root = container.createRoot(TestRoot);
 
     await t.step(
       "should do nothing if no reference record is found for the `key`",
       () => {
-        root.revoke(() => {});
+        root.unlink(() => {});
       },
     );
 
@@ -402,15 +394,15 @@ Deno.test("DependencyHost: host", async (t) => {
         const value = root.call(key);
         assertSpyCalls(key[destructor], 0);
 
-        root.revoke(key);
+        root.unlink(key);
         assertSpyCalls(key[destructor], 1);
-        root.revoke(key);
+        root.unlink(key);
         assertSpyCalls(key[destructor], 1);
 
         assertNotStrictEquals(root.call(key), value);
         assertSpyCalls(key[destructor], 1);
 
-        root.revoke(key);
+        root.unlink(key);
         assertSpyCalls(key[destructor], 2);
       },
     );
