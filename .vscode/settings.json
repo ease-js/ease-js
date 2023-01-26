@@ -16,6 +16,12 @@
   "css.validate": false,
   "deno.codeLens.test": true,
   "deno.enable": true,
+  "deno.codeLens.testArgs": [
+    "--allow-all",
+    "--no-check",
+    "--v8-flags=--expose-gc"
+  ],
+  "deno.testing.args": ["--allow-all", "--v8-flags=--expose-gc"],
   "editor.codeActionsOnSave": {
     "source.fixAll": true
   },
@@ -29,19 +35,5 @@
     "*.code-workspace": true
   },
   "search.useIgnoreFiles": true,
-  "todo-tree.general.tags": ["TODO:", "FIXME:"],
-  "todo-tree.highlights.defaultHighlight": { "gutterIcon": true },
-  "todo-tree.highlights.customHighlight": {
-    "TODO:": {
-      "foreground": "#fff",
-      "background": "#ffbd2a",
-      "iconColour": "#ffbd2a"
-    },
-    "FIXME:": {
-      "foreground": "#fff",
-      "background": "#f06292",
-      "icon": "flame",
-      "iconColour": "#f06292"
-    }
-  }
+  "typescript.suggest.enabled": false
 }

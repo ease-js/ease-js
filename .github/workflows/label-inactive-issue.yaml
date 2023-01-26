@@ -1,0 +1,32 @@
+name: Label Inactive Issue
+on:
+  issues:
+    types: [edited]
+  issue_comment:
+    types: [created, edited]
+  schedule:
+    - cron: "0 0 1 * *"
+permissions:
+  contents: read
+  issues: write
+jobs:
+  Add:
+    if: github.event_name == 'schedule'
+    name: Add Label
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions-cool/issues-helper@v3
+        with:
+          actions: check-inactive
+          inactive-day: 30
+          inactive-label: inactive
+  Remove:
+    if: contains(fromJSON('["issues", "issue_comment"]'), github.event_name) && github.event.issue.state == 'open' && github.actor == github.event.issue.user.login
+    name: Remove Label
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions-cool/issues-helper@v3
+        with:
+          actions: remove-labels
+          issue-number: ${{ github.event.issue.number }}
+          labels: inactive

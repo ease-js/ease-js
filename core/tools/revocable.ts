@@ -5,7 +5,7 @@
  * @module
  */
 
-import { assert } from "std/testing/asserts.ts";
+import { asserts } from "../deps.ts";
 
 // deno-lint-ignore ban-types
 type RevocableType = object;
@@ -40,7 +40,7 @@ function createContainer(): RevokeAPI {
   const Revoked = new WeakSet();
 
   const assertUnrevoked: RevokeAPI["assert"] = (input: RevocableType) => {
-    assert(hasBeenRevoked(input), "Cannot access revoked object");
+    asserts.assert(!hasBeenRevoked(input), "Cannot access revoked object");
   };
 
   const hasBeenRevoked: RevokeAPI["has"] = (input: RevocableType) => {
