@@ -53,6 +53,10 @@ export class CombinationDestination<Result>
     this.#subscription = source.subscribe(this);
   }
 
+  get [Symbol.toStringTag](): string {
+    return "CombinationDestination";
+  }
+
   unsubscribe(): void {
     this.#subscription.unsubscribe();
     super.unsubscribe();
