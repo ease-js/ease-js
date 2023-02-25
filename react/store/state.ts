@@ -1,4 +1,4 @@
-import { immer, rxjs } from "../../core/deps.ts";
+import { immer, rxjs } from "../deps.ts";
 import type { React } from "../deps.ts";
 
 import { useConstant } from "../tools/memo/use-constant.ts";

@@ -1,5 +1,4 @@
-import { asserts } from "../../../core/deps.ts";
-import { React } from "../../deps.ts";
+import { asserts, React } from "../../deps.ts";
 
 export interface RuntimeOnlyContextProviderProps<Value> {
   children?: React.ReactNode;

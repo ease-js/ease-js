@@ -1,4 +1,4 @@
-import { rxjs } from "../../core/deps.ts";
+import { rxjs } from "../deps.ts";
 import type { React } from "../deps.ts";
 
 import { destructor } from "../../core.ts";

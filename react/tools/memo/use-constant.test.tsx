@@ -1,8 +1,7 @@
 import "https://esm.sh/raf@3.4.0/polyfill";
 import { useConstant } from "./use-constant.ts";
-import { mock } from "../../../core/dev-deps.ts";
 import { asserts } from "../../../core/deps.ts";
-import { TestRenderer } from "../../dev-deps.ts";
+import { mock, TestRenderer } from "../../dev-deps.ts";
 import { React } from "../../deps.ts";
 
 Deno.test("useConstant(initializer)", async (t): Promise<void> => {
