@@ -3,7 +3,7 @@
 
 export * from "../core/deps.ts";
 
-export * as immer from "https://esm.sh/immer@9.0.17?bundle";
-export { default as React } from "https://esm.sh/react@18.2.0";
-export { default as ReactDOM } from "https://esm.sh/react-dom@18.2.0";
-export { default as ReactDOMClient } from "https://esm.sh/react-dom@18.2.0/client";
+export * as immer from "https://esm.sh/immer@9.0.17?bundle&deno-std=0.178.0";
+export { default as React } from "https://esm.sh/react@18.2.0?deno-std=0.178.0";
+export { default as ReactDOM } from "https://esm.sh/react-dom@18.2.0?deno-std=0.178.0";
+export { default as ReactDOMClient } from "https://esm.sh/react-dom@18.2.0/client?deno-std=0.178.0";

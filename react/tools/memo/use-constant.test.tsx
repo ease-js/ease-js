@@ -1,4 +1,3 @@
-import "https://esm.sh/raf@3.4.0/polyfill";
 import { useConstant } from "./use-constant.ts";
 import { asserts } from "../../../core/deps.ts";
 import { mock, TestRenderer } from "../../dev-deps.ts";
