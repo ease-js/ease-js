@@ -1,4 +1,4 @@
-import { rxjs } from "../../core/deps.ts";
+import { rxjs } from "../deps.ts";
 import type { React } from "../deps.ts";
 
 import { destructor } from "../../core.ts";
@@ -51,6 +51,10 @@ export class CombinationDestination<Result>
   constructor(source: rxjs.Observable<Result>) {
     super(undefined!);
     this.#subscription = source.subscribe(this);
+  }
+
+  get [Symbol.toStringTag](): string {
+    return "CombinationDestination";
   }
 
   unsubscribe(): void {
