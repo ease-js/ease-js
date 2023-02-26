@@ -423,34 +423,79 @@ Deno.test("DependencyHost: host", async (t) => {
     );
   });
 
-  await t.step("host.unlink(key)", async (t) => {
+  await t.step("host.unlink(...keys)", async (t) => {
     const root = container.createRoot(TestRoot);
 
     await t.step(
       "should do nothing if no reference record is found for the `key`",
       () => {
-        root.unlink(() => {});
+        root.unlink(() => {}, () => {});
       },
     );
 
     await t.step(
       "should invoke the destructor after the dependency has been revoked",
       () => {
-        const key = Object.assign(() => ({}), { [destructor]: mock.spy() });
+        const key1 = Object.assign(() => ({}), { [destructor]: mock.spy() });
+        const key2 = Object.assign(() => ({}), { [destructor]: mock.spy() });
 
-        const value = root.call(key);
-        mock.assertSpyCalls(key[destructor], 0);
+        const value1 = root.call(key1);
+        const value2 = root.call(key2);
+        mock.assertSpyCalls(key1[destructor], 0);
+        mock.assertSpyCalls(key2[destructor], 0);
 
-        root.unlink(key);
-        mock.assertSpyCalls(key[destructor], 1);
-        root.unlink(key);
-        mock.assertSpyCalls(key[destructor], 1);
+        root.unlink(key1, key2);
+        mock.assertSpyCalls(key1[destructor], 1);
+        mock.assertSpyCalls(key2[destructor], 1);
+        root.unlink(key1, key2);
+        mock.assertSpyCalls(key1[destructor], 1);
+        mock.assertSpyCalls(key2[destructor], 1);
 
-        asserts.assertNotStrictEquals(root.call(key), value);
-        mock.assertSpyCalls(key[destructor], 1);
+        asserts.assertNotStrictEquals(root.call(key1), value1);
+        asserts.assertNotStrictEquals(root.call(key2), value2);
+        mock.assertSpyCalls(key1[destructor], 1);
+        mock.assertSpyCalls(key2[destructor], 1);
 
-        root.unlink(key);
-        mock.assertSpyCalls(key[destructor], 2);
+        root.unlink(key1, key2);
+        mock.assertSpyCalls(key1[destructor], 2);
+        mock.assertSpyCalls(key2[destructor], 2);
+      },
+    );
+  });
+
+  await t.step("host.unlinkAll()", async (t) => {
+    const root = container.createRoot(TestRoot);
+
+    await t.step("should do nothing if no reference exists", () => {
+      root.unlinkAll();
+    });
+
+    await t.step(
+      "should invoke the destructor after the dependency has been revoked",
+      () => {
+        const key1 = Object.assign(() => ({}), { [destructor]: mock.spy() });
+        const key2 = Object.assign(() => ({}), { [destructor]: mock.spy() });
+
+        const value1 = root.call(key1);
+        const value2 = root.call(key2);
+        mock.assertSpyCalls(key1[destructor], 0);
+        mock.assertSpyCalls(key2[destructor], 0);
+
+        root.unlinkAll();
+        mock.assertSpyCalls(key1[destructor], 1);
+        mock.assertSpyCalls(key2[destructor], 1);
+        root.unlinkAll();
+        mock.assertSpyCalls(key1[destructor], 1);
+        mock.assertSpyCalls(key2[destructor], 1);
+
+        asserts.assertNotStrictEquals(root.call(key1), value1);
+        asserts.assertNotStrictEquals(root.call(key2), value2);
+        mock.assertSpyCalls(key1[destructor], 1);
+        mock.assertSpyCalls(key2[destructor], 1);
+
+        root.unlinkAll();
+        mock.assertSpyCalls(key1[destructor], 2);
+        mock.assertSpyCalls(key2[destructor], 2);
       },
     );
   });
