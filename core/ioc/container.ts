@@ -313,8 +313,12 @@ export interface DependencyHost {
    * 解除对指定依赖的引用关系，当其不再被其他地方引用时将会被回收释放。
    */
   readonly unlink: <Params extends AnyParams, Value>(
-    key: DependencyKeyWithDestructor<Params, Value>,
+    ...keys: DependencyKeyWithDestructor<Params, Value>[]
   ) => void;
+  /**
+   * 解除对所有依赖的引用关系，当其不再被其他地方引用时将会被回收释放。
+   */
+  readonly unlinkAll: () => void;
   /**
    * 将指定**已存在的**依赖转换为弱引用依赖，或是从弱引用依赖转回强引用依赖。
    *
@@ -432,8 +436,11 @@ export function createDependencyContainer(
         const descriptor = createDependencyDescriptor(key, load);
         return dependency.link(descriptor).value;
       },
-      unlink(key) {
-        dependency.unlink(key);
+      unlink(...keys) {
+        dependency.unlink(...keys);
+      },
+      unlinkAll() {
+        dependency.unlinkAll();
       },
       weaken(key, handle) {
         dependency.weaken(key, handle);
