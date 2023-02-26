@@ -361,60 +361,34 @@ export class Dependency<Key, Scope, Value = unknown> {
   /**
    * 删除依赖引用关系，期间将自动完成依赖的回收。
    */
-  unlink(key: Key): void {
+  unlink(...keys: Key[]): void {
     revoke.assert(this);
 
-    const startNode = this.#references?.get(key);
-    if (!startNode) return;
+    const eject = (key: Key): Dependency<Key, Scope> | undefined => {
+      const reference = this.#references?.get(key);
+      if (reference) this.#references!.delete(key);
+      return reference;
+    };
 
-    this.#references!.delete(key);
-    this.#weak?.unregister(startNode);
-    startNode.#referrers?.delete(this);
-    if (!startNode.#isUnreachable()) return;
-
-    const destructors: (() => void)[] = [];
-    const pending: Iterable<Dependency<Key, Scope>>[] = [];
-    let iterable: Iterable<Dependency<Key, Scope>> | undefined = [startNode];
-
-    do {
-      for (const dep of iterable) {
-        // 调用 revoke(dep) 会立即将 dep 标记为已回收，
-        // 因此不会在后续 #isUnreachable() 遍历 referrers 时被误判为根节点
-        if (!revoke(dep)) continue;
-
-        if (dep.#parent) {
-          dep.#parent[0].#children?.delete(dep.#parent[1]);
-          dep.#parent = undefined;
-        }
-
-        if (dep.#references) {
-          const unreachable: Dependency<Key, Scope>[] = [];
-          for (const reference of dep.#references.values()) {
-            dep.#weak?.unregister(reference);
-            reference.#referrers?.delete(dep);
-            if (reference.#isUnreachable()) unreachable.push(reference);
-          }
-
-          if (unreachable.length) pending.push(unreachable);
-          dep.#references = undefined;
-        }
-
-        if (dep.#value) {
-          const { unload } = dep.#value;
-          if (unload) destructors.push(unload);
-          dep.#value = undefined;
-        }
-
-        dep.#children = undefined;
-        dep.#referrers = undefined;
-        dep.#scope = NeverScope;
-        dep.#weak = undefined;
+    this.#unlink((function* () {
+      for (const key of keys) {
+        const dep = eject(key);
+        if (dep) yield dep;
       }
-    } while ((iterable = pending.pop()));
+    })());
+  }
 
-    for (const unload of destructors) {
-      unload();
-    }
+  /**
+   * 删除所有依赖引用关系，期间将自动完成依赖的回收。
+   */
+  unlinkAll(): void {
+    revoke.assert(this);
+
+    const references = this.#references;
+    if (!references) return;
+
+    this.#references = undefined;
+    this.#unlink(references.values());
   }
 
   /**
@@ -507,5 +481,64 @@ export class Dependency<Key, Scope, Value = unknown> {
     }
 
     return target;
+  }
+
+  /**
+   * 删除依赖引用关系，期间将自动完成依赖的回收。
+   */
+  #unlink(deps: Iterable<Dependency<Key, Scope>>): void {
+    const destructors: (() => void)[] = [];
+    const pending: (readonly Dependency<Key, Scope>[])[] = [];
+
+    collect(this, deps);
+
+    for (
+      let iterable: Iterable<Dependency<Key, Scope>> | undefined;
+      (iterable = pending.pop());
+    ) {
+      for (const dep of iterable) {
+        // 调用 revoke(dep) 会立即将 dep 标记为已回收，
+        // 因此不会在后续 #isUnreachable() 遍历 referrers 时被误判为根节点
+        if (!revoke(dep)) continue;
+
+        if (dep.#parent) {
+          dep.#parent[0].#children?.delete(dep.#parent[1]);
+          dep.#parent = undefined;
+        }
+
+        if (dep.#references) {
+          collect(dep, dep.#references.values());
+          dep.#references = undefined;
+        }
+
+        if (dep.#value) {
+          const { unload } = dep.#value;
+          if (unload) destructors.push(unload);
+          dep.#value = undefined;
+        }
+
+        dep.#children = undefined;
+        dep.#referrers = undefined;
+        dep.#scope = NeverScope;
+        dep.#weak = undefined;
+      }
+    }
+
+    for (const unload of destructors) {
+      unload();
+    }
+
+    function collect(
+      referrer: Dependency<Key, Scope>,
+      references: Iterable<Dependency<Key, Scope>>,
+    ): void {
+      const unreachable: Dependency<Key, Scope>[] = [];
+      for (const reference of references) {
+        referrer.#weak?.unregister(reference);
+        reference.#referrers?.delete(referrer);
+        if (reference.#isUnreachable()) unreachable.push(reference);
+      }
+      if (unreachable.length) pending.push(unreachable);
+    }
   }
 }
