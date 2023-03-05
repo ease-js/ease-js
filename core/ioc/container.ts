@@ -401,7 +401,7 @@ export function createDependencyContainer(
     Hoist(scope = true) {
       return function decorator(key) {
         updateDependencyDescriptor(key, (draft) => {
-          if (scope) draft.hoist = scope === true ? scope : { scope };
+          if (scope) draft.hoist = scope === true || { scope };
           else delete draft.hoist;
         });
         return key;
