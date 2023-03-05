@@ -2,6 +2,7 @@
 // @see https://github.com/tc39/proposal-compartments
 
 export * from "../core/deps.ts";
+export * as core from "../core.ts";
 
 export * as immer from "https://esm.sh/immer@9.0.17?bundle&deno-std=0.178.0&pin=v108";
 export { default as React } from "https://esm.sh/react@18.2.0?deno-std=0.178.0&pin=v108";

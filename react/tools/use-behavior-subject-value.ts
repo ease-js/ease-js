@@ -1,5 +1,5 @@
-import type { rxjs } from "../../deps.ts";
-import { React } from "../../deps.ts";
+import type { rxjs } from "../deps.ts";
+import { React } from "../deps.ts";
 
 const EmptyArray = [] as const;
 
