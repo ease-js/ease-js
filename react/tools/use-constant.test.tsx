@@ -1,7 +1,6 @@
 import { useConstant } from "./use-constant.ts";
-import { asserts } from "../../../core/deps.ts";
-import { mock, TestRenderer } from "../../dev-deps.ts";
-import { React } from "../../deps.ts";
+import { mock, TestRenderer } from "../dev-deps.ts";
+import { asserts, React } from "../deps.ts";
 
 Deno.test("useConstant(initializer)", async (t): Promise<void> => {
   await t.step(

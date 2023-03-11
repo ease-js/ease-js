@@ -1,16 +1,8 @@
-import { React } from "../deps.ts";
+import { core, React } from "../deps.ts";
 
-import type {
-  CallableDependencyKey,
-  DependencyHost,
-  DependencyRootHost,
-  WeakDependencyHandle,
-  WithDependencyDestructor,
-} from "../../core.ts";
-import { createDependencyContainer } from "../../core.ts";
 import { emplaceMap } from "../../core/tools/emplace.ts";
-import { useConstant } from "../tools/memo/use-constant.ts";
-import { createRuntimeOnlyContext } from "../tools/runtime-only-context/mod.tsx";
+import { createRuntimeOnlyContext } from "../tools/runtime-only-context.tsx";
+import { useConstant } from "../tools/use-constant.ts";
 
 interface ReactStoreCloneOptions extends ReactStoreDecorateOptions {
   /**
@@ -47,7 +39,8 @@ interface ReactStoreContainer {
 }
 
 // deno-lint-ignore no-empty-interface
-interface ReactStoreCreator<Value> extends CallableDependencyKey<[], Value> {}
+interface ReactStoreCreator<Value>
+  extends core.CallableDependencyKey<[], Value> {}
 
 interface ReactStoreCreatorMixins {
   // deno-lint-ignore no-explicit-any
@@ -65,7 +58,7 @@ interface ReactStoreCreatorMixins {
 }
 
 interface ReactStoreCreatorWithDestructor<Value>
-  extends ReactStoreCreator<Value>, WithDependencyDestructor<Value> {}
+  extends ReactStoreCreator<Value>, core.WithDependencyDestructor<Value> {}
 
 interface ReactStoreDecorateOptions {
   /**
@@ -85,7 +78,7 @@ interface ReactStoreRootProvider {
 
 interface ReactStoreRootProviderProps {
   readonly children?: React.ReactNode;
-  readonly create?: (host: DependencyRootHost<ReactStoreRoot>) => void;
+  readonly create?: (host: core.DependencyRootHost<ReactStoreRoot>) => void;
 }
 
 export type {
@@ -111,10 +104,10 @@ function createReactStoreContainer(): ReactStoreContainer {
     ReactStoreDescriptor<unknown>
   >();
   const [useRootHost, RootHostProvider] = createRuntimeOnlyContext<
-    DependencyRootHost<ReactStoreRoot>
+    core.DependencyRootHost<ReactStoreRoot>
   >("DependencyRootHost");
 
-  const depContainer = createDependencyContainer({
+  const depContainer = core.createDependencyContainer({
     createDescriptor(descriptor) {
       return { ...descriptor, hoist: true };
     },
@@ -181,9 +174,9 @@ function createReactStoreContainer(): ReactStoreContainer {
       const descriptor = emplaceReactStoreDescriptor(create);
       if (!descriptor.weak) return [root.call(create)] as const;
 
-      const handle: WeakDependencyHandle = {};
-      const weakKey = (host: DependencyHost) => host;
-      const weakHost: DependencyHost = root.call(weakKey);
+      const handle: core.WeakDependencyHandle = {};
+      const weakKey = (host: core.DependencyHost) => host;
+      const weakHost: core.DependencyHost = root.call(weakKey);
       root.weaken(weakKey, handle);
       return [weakHost.call(create), handle] as const;
     })[0];

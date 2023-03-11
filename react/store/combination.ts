@@ -1,12 +1,11 @@
-import { rxjs } from "../deps.ts";
 import type { React } from "../deps.ts";
+import { core, rxjs } from "../deps.ts";
 
-import { destructor } from "../../core.ts";
-import type { BehaviorSubjectValueSelector } from "../tools/rxjs/use-behavior-subject-value.ts";
+import type { BehaviorSubjectValueSelector } from "../tools/use-behavior-subject-value.ts";
 import {
   useBehaviorSubjectValue,
   useBehaviorSubjectValueWithSelector,
-} from "../tools/rxjs/use-behavior-subject-value.ts";
+} from "../tools/use-behavior-subject-value.ts";
 import type {
   ReactStoreCreator,
   ReactStoreCreatorMixins,
@@ -87,7 +86,9 @@ export function defineCombination<Combination extends AnyCombination>(
       : rxjs.combineLatest(sources);
     return new CombinationDestination(observable);
   };
-  createCombination[destructor] = (destination) => destination.unsubscribe();
+  createCombination[core.destructor] = (destination) => {
+    destination.unsubscribe();
+  };
 
   return Object.assign(store.mixin(createCombination), {
     useCombination,

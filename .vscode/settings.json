@@ -32,7 +32,8 @@
   "json.format.enable": false,
   "search.exclude": {
     ".vscode/**": true,
-    "*.code-workspace": true
+    "*.code-workspace": true,
+    "deno.lock": true
   },
   "search.useIgnoreFiles": true,
   "typescript.suggest.enabled": false

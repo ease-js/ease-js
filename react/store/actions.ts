@@ -1,4 +1,4 @@
-import { destructor } from "../../core.ts";
+import { core } from "../deps.ts";
 import type {
   ReactStoreCreator,
   ReactStoreCreatorMixins,
@@ -10,7 +10,7 @@ import { store } from "./container.tsx";
 type AnyStores = readonly any[];
 
 interface AnyActions {
-  readonly [destructor]?: () => void;
+  readonly [core.destructor]?: () => void;
 }
 
 export interface ReactActionsCreator<Actions extends AnyActions>
@@ -33,7 +33,9 @@ export function defineActions<Stores extends AnyStores>(
             ...deps.map((dep) => host.call(dep)),
           );
         };
-      createActions[destructor] = (actions) => actions[destructor]?.();
+      createActions[core.destructor] = (actions) => {
+        actions[core.destructor]?.();
+      };
 
       return store.mixin(createActions);
     },

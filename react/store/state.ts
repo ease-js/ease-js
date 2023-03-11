@@ -1,12 +1,12 @@
 import { immer, rxjs } from "../deps.ts";
 import type { React } from "../deps.ts";
 
-import { useConstant } from "../tools/memo/use-constant.ts";
-import type { BehaviorSubjectValueSelector } from "../tools/rxjs/use-behavior-subject-value.ts";
+import type { BehaviorSubjectValueSelector } from "../tools/use-behavior-subject-value.ts";
 import {
   useBehaviorSubjectValue,
   useBehaviorSubjectValueWithSelector,
-} from "../tools/rxjs/use-behavior-subject-value.ts";
+} from "../tools/use-behavior-subject-value.ts";
+import { useConstant } from "../tools/use-constant.ts";
 import type {
   ReactStoreCreator,
   ReactStoreCreatorMixins,
