@@ -4,7 +4,7 @@ import { mock } from "../dev-deps.ts";
 import type {
   DependencyContainerHost,
   DependencyHost,
-  WeakDependencyHandle,
+  DependencyWeakReferenceHandle,
 } from "./container.ts";
 import { createDependencyContainer, destructor } from "./container.ts";
 
@@ -355,6 +355,43 @@ Deno.test("DependencyHost: host", async (t) => {
     );
   });
 
+  await t.step("host.clear()", async (t) => {
+    const root = container.createRoot(TestRoot);
+
+    await t.step("should do nothing if no reference exists", () => {
+      root.clear();
+    });
+
+    await t.step(
+      "should invoke the destructor after the dependency has been revoked",
+      () => {
+        const key1 = Object.assign(() => ({}), { [destructor]: mock.spy() });
+        const key2 = Object.assign(() => ({}), { [destructor]: mock.spy() });
+
+        const value1 = root.call(key1);
+        const value2 = root.call(key2);
+        mock.assertSpyCalls(key1[destructor], 0);
+        mock.assertSpyCalls(key2[destructor], 0);
+
+        root.clear();
+        mock.assertSpyCalls(key1[destructor], 1);
+        mock.assertSpyCalls(key2[destructor], 1);
+        root.clear();
+        mock.assertSpyCalls(key1[destructor], 1);
+        mock.assertSpyCalls(key2[destructor], 1);
+
+        asserts.assertNotStrictEquals(root.call(key1), value1);
+        asserts.assertNotStrictEquals(root.call(key2), value2);
+        mock.assertSpyCalls(key1[destructor], 1);
+        mock.assertSpyCalls(key2[destructor], 1);
+
+        root.clear();
+        mock.assertSpyCalls(key1[destructor], 2);
+        mock.assertSpyCalls(key2[destructor], 2);
+      },
+    );
+  });
+
   await t.step("host.new(key, ...params)", async (t) => {
     const root = container.createRoot(TestRoot);
 
@@ -463,43 +500,6 @@ Deno.test("DependencyHost: host", async (t) => {
     );
   });
 
-  await t.step("host.unlinkAll()", async (t) => {
-    const root = container.createRoot(TestRoot);
-
-    await t.step("should do nothing if no reference exists", () => {
-      root.unlinkAll();
-    });
-
-    await t.step(
-      "should invoke the destructor after the dependency has been revoked",
-      () => {
-        const key1 = Object.assign(() => ({}), { [destructor]: mock.spy() });
-        const key2 = Object.assign(() => ({}), { [destructor]: mock.spy() });
-
-        const value1 = root.call(key1);
-        const value2 = root.call(key2);
-        mock.assertSpyCalls(key1[destructor], 0);
-        mock.assertSpyCalls(key2[destructor], 0);
-
-        root.unlinkAll();
-        mock.assertSpyCalls(key1[destructor], 1);
-        mock.assertSpyCalls(key2[destructor], 1);
-        root.unlinkAll();
-        mock.assertSpyCalls(key1[destructor], 1);
-        mock.assertSpyCalls(key2[destructor], 1);
-
-        asserts.assertNotStrictEquals(root.call(key1), value1);
-        asserts.assertNotStrictEquals(root.call(key2), value2);
-        mock.assertSpyCalls(key1[destructor], 1);
-        mock.assertSpyCalls(key2[destructor], 1);
-
-        root.unlinkAll();
-        mock.assertSpyCalls(key1[destructor], 2);
-        mock.assertSpyCalls(key2[destructor], 2);
-      },
-    );
-  });
-
   await t.step("host.weaken(key, handle)", async (t) => {
     const root = container.createRoot(TestRoot);
 
@@ -507,7 +507,7 @@ Deno.test("DependencyHost: host", async (t) => {
       await t.step(
         "should unlink the dependency after the `handle` object has been revoked by GC",
         async () => {
-          let handle: WeakDependencyHandle;
+          let handle: DependencyWeakReferenceHandle;
 
           const key = () => ({});
           const value = root.call(key);

@@ -180,7 +180,7 @@
  * const DemoDescriptor = { ... };
  *
  * export function useWeakDependency() {
- *   const [handle] = React.useState((): WeakDependencyHandle => ({}));
+ *   const [handle] = React.useState((): DependencyWeakReferenceHandle => ({}));
  *   const [dependency] = React.useState(() => {
  *     const instance = root.link(DemoDescriptor);
  *     root.weaken(DemoDescriptor.key, handle);
@@ -194,12 +194,10 @@
  */
 
 import { asserts } from "../deps.ts";
-
 import { emplaceMap } from "../tools/emplace.ts";
 import { revoke } from "../tools/revocable.ts";
 
-// 特殊的 scope 类型，与 TypeScript 的 any / never 类似
-// const AnyScope = Symbol("AnyScope");
+// 特殊的 scope 类型，与 TypeScript 的 never 类似
 const NeverScope = Symbol("NeverScope");
 
 /**
@@ -260,10 +258,10 @@ export interface DependencyInit<Key, Scope, Value = unknown> {
 }
 
 /**
- * 弱引用依赖的句柄。
+ * 弱引用关系的句柄。
  */
 // deno-lint-ignore ban-types
-export type WeakDependencyHandle = object;
+export type DependencyWeakReferenceHandle = object;
 
 /**
  * 用于管理依赖关系的通用类。
@@ -315,14 +313,6 @@ export class Dependency<Key, Scope, Value = unknown> {
   }
 
   /**
-   * 当前节点是否为根节点。
-   */
-  get #isRoot(): boolean {
-    // 没有被回收 && 不存在 #parent
-    return !revoke.has(this) && !this.#parent;
-  }
-
-  /**
    * 读取当前节点保存的值，在完成初始化之前，此属性不可以被读取。
    */
   get value(): Value {
@@ -336,6 +326,19 @@ export class Dependency<Key, Scope, Value = unknown> {
   }
 
   /**
+   * 删除所有依赖引用关系，期间将自动完成依赖的回收。
+   */
+  clear(): void {
+    revoke.assert(this);
+
+    const references = this.#references;
+    if (!references) return;
+
+    this.#references = undefined;
+    this.#unlink(references.values());
+  }
+
+  /**
    * 添加依赖引用关系，期间将自动完成依赖的加载。
    */
   link<ChildValue>(
@@ -344,13 +347,32 @@ export class Dependency<Key, Scope, Value = unknown> {
   link(descriptor: DependencyDescriptor<Key, Scope>): Dependency<Key, Scope> {
     revoke.assert(this);
 
-    const { key } = descriptor;
-
-    this.#references ??= new Map();
-    return emplaceMap(this.#references, key, {
+    const { hoist, key } = descriptor;
+    return emplaceMap(this.#references ??= new Map(), key, {
       insert: () => {
-        const reference = this.#resolveHoistTarget(descriptor.hoist)
-          .#install(key, descriptor);
+        // deno-lint-ignore no-this-alias
+        let parent: Dependency<Key, Scope> = this;
+
+        if (hoist === true) {
+          while (parent.#parent) parent = parent.#parent[0];
+        } else if (hoist) {
+          const { is } = Object;
+          const { acceptRoot = true, scope } = hoist;
+          for (; !is(parent.#scope, scope); parent = parent.#parent[0]) {
+            if (!parent.#parent) {
+              if (acceptRoot) break;
+              else throw new Error("No matching hoist scope found");
+            }
+          }
+        }
+
+        const reference = emplaceMap(parent.#children ??= new Map(), key, {
+          insert: () => {
+            const child = new Dependency<Key, Scope>(descriptor);
+            child.#parent = [parent, key];
+            return child;
+          },
+        });
         reference.#referrers ??= new Set();
         reference.#referrers.add(this);
         return reference;
@@ -364,37 +386,24 @@ export class Dependency<Key, Scope, Value = unknown> {
   unlink(...keys: Key[]): void {
     revoke.assert(this);
 
-    const eject = (key: Key): Dependency<Key, Scope> | undefined => {
-      const reference = this.#references?.get(key);
-      if (reference) this.#references!.delete(key);
-      return reference;
-    };
+    const references = this.#references;
+    if (!references) return;
 
     this.#unlink((function* () {
       for (const key of keys) {
-        const dep = eject(key);
-        if (dep) yield dep;
+        const reference = references.get(key);
+        if (reference) {
+          references.delete(key);
+          yield reference;
+        }
       }
     })());
   }
 
   /**
-   * 删除所有依赖引用关系，期间将自动完成依赖的回收。
-   */
-  unlinkAll(): void {
-    revoke.assert(this);
-
-    const references = this.#references;
-    if (!references) return;
-
-    this.#references = undefined;
-    this.#unlink(references.values());
-  }
-
-  /**
    * 将已存在的依赖引用关系转为弱引用，如果传入 `null` 则恢复为强引用。
    */
-  weaken(key: Key, handle: WeakDependencyHandle | null): void {
+  weaken(key: Key, handle: DependencyWeakReferenceHandle | null): void {
     revoke.assert(this);
 
     const reference = this.#references?.get(key);
@@ -412,75 +421,25 @@ export class Dependency<Key, Scope, Value = unknown> {
   }
 
   /**
-   * 在当前节点安装一个新依赖。
-   */
-  #install<ChildValue>(
-    key: Key,
-    init: DependencyInit<Key, Scope, ChildValue>,
-  ): Dependency<Key, Scope, ChildValue>;
-  #install(
-    key: Key,
-    init: DependencyInit<Key, Scope>,
-  ): Dependency<Key, Scope> {
-    this.#children ??= new Map();
-    return emplaceMap(this.#children, key, {
-      insert: () => {
-        const child = new Dependency<Key, Scope>(init);
-        child.#parent = [this, key];
-        return child;
-      },
-    });
-  }
-
-  /**
    * 当前节点是否无法溯源到根节点，如果无法回溯，说明当前节点需要被回收。
    */
   #isUnreachable(): boolean {
-    // 已经被回收了
-    if (revoke.has(this)) return true;
-
     const pending: Iterable<Dependency<Key, Scope>>[] = [];
     const visited = new WeakSet<Dependency<Key, Scope>>();
     let iterable: Iterable<Dependency<Key, Scope>> | undefined = [this];
 
     do {
       for (const referrer of iterable) {
-        if (visited.has(referrer)) continue;
+        if (revoke.has(referrer) || visited.has(referrer)) continue;
         visited.add(referrer);
 
         // 已到达根节点，说明依然存在存活的依赖引用了当前节点
-        // 如果节点已被回收，则 #isRoot 一定为假
-        if (referrer.#isRoot) return false;
+        if (!referrer.#parent) return false;
         if (referrer.#referrers?.size) pending.push(referrer.#referrers);
       }
     } while ((iterable = pending.pop()));
 
     return true;
-  }
-
-  /**
-   * 查找可用的共享范围。
-   */
-  #resolveHoistTarget(
-    hoist: DependencyHoistConfig<Scope> | boolean | undefined,
-  ): Dependency<Key, Scope> {
-    // deno-lint-ignore no-this-alias
-    let target: Dependency<Key, Scope> = this;
-
-    if (hoist === true) {
-      while (target.#parent) target = target.#parent[0];
-    } else if (hoist) {
-      const { is } = Object;
-      const { acceptRoot = true, scope } = hoist;
-      for (; !is(target.#scope, scope); target = target.#parent[0]) {
-        if (!target.#parent) {
-          if (acceptRoot) break;
-          else throw new Error("No matching shareScope found");
-        }
-      }
-    }
-
-    return target;
   }
 
   /**
@@ -490,7 +449,8 @@ export class Dependency<Key, Scope, Value = unknown> {
     const destructors: (() => void)[] = [];
     const pending: (readonly Dependency<Key, Scope>[])[] = [];
 
-    collect(this, deps);
+    // 广度遍历
+    unlink(this, deps);
 
     for (
       let iterable: Iterable<Dependency<Key, Scope>> | undefined;
@@ -507,7 +467,7 @@ export class Dependency<Key, Scope, Value = unknown> {
         }
 
         if (dep.#references) {
-          collect(dep, dep.#references.values());
+          unlink(dep, dep.#references.values());
           dep.#references = undefined;
         }
 
@@ -524,11 +484,16 @@ export class Dependency<Key, Scope, Value = unknown> {
       }
     }
 
-    for (const unload of destructors) {
+    for (
+      let index = destructors.length - 1, unload: () => void;
+      index >= 0;
+      index -= 1
+    ) {
+      unload = destructors[index];
       unload();
     }
 
-    function collect(
+    function unlink(
       referrer: Dependency<Key, Scope>,
       references: Iterable<Dependency<Key, Scope>>,
     ): void {

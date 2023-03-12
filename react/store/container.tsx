@@ -174,7 +174,7 @@ function createReactStoreContainer(): ReactStoreContainer {
       const descriptor = emplaceReactStoreDescriptor(create);
       if (!descriptor.weak) return [root.call(create)] as const;
 
-      const handle: core.WeakDependencyHandle = {};
+      const handle: core.DependencyWeakReferenceHandle = {};
       const weakKey = (host: core.DependencyHost) => host;
       const weakHost: core.DependencyHost = root.call(weakKey);
       root.weaken(weakKey, handle);

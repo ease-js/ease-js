@@ -190,9 +190,9 @@ type DependencyScope =
   | CallableFunction
   | NewableFunction;
 /**
- * 弱引用依赖的句柄 {@link deps.WeakDependencyHandle} 。
+ * 弱引用依赖的句柄 {@link deps.DependencyWeakReferenceHandle} 。
  */
-type WeakDependencyHandle = deps.WeakDependencyHandle;
+type DependencyWeakReferenceHandle = deps.DependencyWeakReferenceHandle;
 
 /**
  * 获取 {@link DependencyKey|DependencyKey<Params, Value>} 的 Params 类型。
@@ -210,9 +210,9 @@ export type {
   DependencyKey,
   DependencyKeyWithDestructor,
   DependencyScope,
+  DependencyWeakReferenceHandle,
   ParametersOfDependencyKey,
   ValueOfDependencyKey,
-  WeakDependencyHandle,
 };
 
 /**
@@ -299,6 +299,10 @@ export interface DependencyHost {
     ...params: Params
   ) => Value;
   /**
+   * 解除对所有依赖的引用关系，当其不再被其他地方引用时将会被回收释放。
+   */
+  readonly clear: () => void;
+  /**
    * 加载一个以 class 形式实现的依赖。
    *
    * @description
@@ -315,10 +319,6 @@ export interface DependencyHost {
   readonly unlink: <Params extends AnyParams, Value>(
     ...keys: DependencyKeyWithDestructor<Params, Value>[]
   ) => void;
-  /**
-   * 解除对所有依赖的引用关系，当其不再被其他地方引用时将会被回收释放。
-   */
-  readonly unlinkAll: () => void;
   /**
    * 将指定**已存在的**依赖转换为弱引用依赖，或是从弱引用依赖转回强引用依赖。
    *
@@ -337,7 +337,7 @@ export interface DependencyHost {
    */
   readonly weaken: <Params extends AnyParams, Value>(
     key: DependencyKeyWithDestructor<Params, Value>,
-    handle: WeakDependencyHandle | null,
+    handle: DependencyWeakReferenceHandle | null,
   ) => void;
 }
 
@@ -431,6 +431,9 @@ export function createDependencyContainer(
         const descriptor = createDependencyDescriptor(key, load);
         return dependency.link(descriptor).value;
       },
+      clear() {
+        dependency.clear();
+      },
       new(key, ...params) {
         const load = createNewableDependencyLoader(key, params);
         const descriptor = createDependencyDescriptor(key, load);
@@ -438,9 +441,6 @@ export function createDependencyContainer(
       },
       unlink(...keys) {
         dependency.unlink(...keys);
-      },
-      unlinkAll() {
-        dependency.unlinkAll();
       },
       weaken(key, handle) {
         dependency.weaken(key, handle);
