@@ -10,32 +10,12 @@ import { Dependency } from "./dependency.ts";
 // 设置 --v8-flags=--expose-gc 即可启用此 API
 declare const gc: undefined | (() => void);
 
-Deno.test("new Dependency(init)", async (t) => {
-  await t.step("should assert `init.load` is a function", () => {
-    new Dependency({ load: () => {} });
-
-    asserts.assertThrows(() => {
-      new Dependency({ load: null! });
-    }, asserts.AssertionError);
-  });
-
-  await t.step("should assert `init.unload` is undefined or a function", () => {
-    new Dependency({ load: () => {}, unload: () => {} });
-    new Dependency({ load: () => {}, unload: undefined });
-
-    asserts.assertThrows(() => {
-      new Dependency({ load: () => {}, unload: null! });
-    }, asserts.AssertionError);
-    asserts.assertThrows(() => {
-      new Dependency({ load: () => {}, unload: {} as never });
-    }, asserts.AssertionError);
-  });
-
+Deno.test("new Dependency()", async (t) => {
   await t.step("dependency.value", async (t) => {
     await t.step(
       "should throw an assertion when accessed after the dependency has been revoked",
       () => {
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const key = count();
         const dep = root.link({ key, load: () => {} });
 
@@ -51,21 +31,21 @@ Deno.test("new Dependency(init)", async (t) => {
       "should invoke `init.load()` when `dependency.value` is accessed for the first time",
       () => {
         const load = mock.spy(() => ({}));
-        const root = new Dependency({ load });
+        const dep = new Dependency().link({ key: count(), load });
 
         mock.assertSpyCalls(load, 0);
 
-        asserts.assertStrictEquals(root.value, root.value);
-        asserts.assertStrictEquals(root.value, load.calls[0].returned);
+        asserts.assertStrictEquals(dep.value, dep.value);
+        asserts.assertStrictEquals(dep.value, load.calls[0].returned);
         mock.assertSpyCalls(load, 1);
-        mock.assertSpyCallArgs(load, 0, [root]);
+        mock.assertSpyCallArgs(load, 0, [dep]);
       },
     );
 
     await t.step(
       "should throw an assertion if the circular reference relationship is not built lazily",
       () => {
-        const root = new Dependency({ load: () => 0 });
+        const root = new Dependency();
         const dep1: DependencyDescriptor<unknown, unknown, unknown> = {
           hoist: true,
           key: 1,
@@ -90,7 +70,7 @@ Deno.test("new Dependency(init)", async (t) => {
     await t.step(
       "should throw an assertion if accessed inside `init.load()`",
       () => {
-        const root = new Dependency({ load: () => 0 });
+        const root = new Dependency();
 
         asserts.assertThrows(() => {
           root.link({ key: 1, load: (dep) => dep.value }).value;
@@ -101,7 +81,7 @@ Deno.test("new Dependency(init)", async (t) => {
     await t.step(
       "should not throw an assertion if the circular reference relationship is built lazily",
       () => {
-        const root = new Dependency({ load: () => 0 });
+        const root = new Dependency();
         const dep1: DependencyDescriptor<unknown, unknown, [0, () => number]> =
           {
             hoist: true,
@@ -122,7 +102,7 @@ Deno.test("new Dependency(init)", async (t) => {
 
   await t.step("dependency[@@toStringTag]", async (t) => {
     await t.step("should equal `'Dependency'`", () => {
-      const root = new Dependency({ load: () => {} });
+      const root = new Dependency();
       asserts.assertStrictEquals(root[Symbol.toStringTag], "Dependency");
       asserts.assertStrictEquals(
         Dependency.prototype[Symbol.toStringTag],
@@ -135,7 +115,7 @@ Deno.test("new Dependency(init)", async (t) => {
     await t.step(
       "should throw an assertion when invoked after the dependency has been revoked",
       () => {
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const key = count();
         const dep = root.link({ key, load: () => {} });
 
@@ -149,7 +129,7 @@ Deno.test("new Dependency(init)", async (t) => {
 
     await t.step("should do nothing if no reference exists", () => {
       const key = count();
-      const root = new Dependency({ load: () => {} });
+      const root = new Dependency();
       root.clear();
       asserts.assertStrictEquals(root.link({ key, load: () => 1 }).value, 1);
       root.clear();
@@ -163,7 +143,7 @@ Deno.test("new Dependency(init)", async (t) => {
         const finalization = new FinalizationRegistry<string>((token) => {
           cleanedToken.add(token);
         });
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const keyB = count();
         const keyC = count();
         const loadA = () => {
@@ -219,7 +199,7 @@ Deno.test("new Dependency(init)", async (t) => {
     await t.step(
       "should invoke `init.unload?.()` after the dependency has been revoked",
       () => {
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const key = count();
         const load = mock.spy(() => ({}));
         const unload = mock.spy(() => {});
@@ -244,7 +224,7 @@ Deno.test("new Dependency(init)", async (t) => {
       "should delay the execution of `init.unload()` until the dependency collection is completed, " +
         "so as to avoid dependency collection being interrupted by the error thrown by `init.unload()`",
       () => {
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const keyA = count();
         const keyB = count();
         const unloadA = mock.spy(() => {
@@ -280,7 +260,7 @@ Deno.test("new Dependency(init)", async (t) => {
       () => {
         const load = mock.spy(() => ({}));
         const unload = mock.spy(() => {});
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const key = count();
         root.link({ key, load, unload });
 
@@ -296,10 +276,34 @@ Deno.test("new Dependency(init)", async (t) => {
   });
 
   await t.step("dependency.link(descriptor)", async (t) => {
+    await t.step("should assert `init.load` is a function", () => {
+      new Dependency().link({ key: 0, load: () => {} });
+
+      asserts.assertThrows(() => {
+        new Dependency().link({ key: 0, load: null! });
+      }, asserts.AssertionError);
+    });
+
+    await t.step(
+      "should assert `init.unload` is undefined or a function",
+      () => {
+        const load = () => {};
+        new Dependency().link({ key: 0, load, unload: () => {} });
+        new Dependency().link({ key: 0, load, unload: undefined });
+
+        asserts.assertThrows(() => {
+          new Dependency().link({ key: 0, load, unload: null! });
+        }, asserts.AssertionError);
+        asserts.assertThrows(() => {
+          new Dependency().link({ key: 0, load, unload: {} as never });
+        }, asserts.AssertionError);
+      },
+    );
+
     await t.step(
       "should throw an assertion when invoked after the dependency has been revoked",
       () => {
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const key = count();
         const dep = root.link({ key, load: () => {} });
 
@@ -314,7 +318,7 @@ Deno.test("new Dependency(init)", async (t) => {
     await t.step(
       "should return the same dependency instance for the same `descriptor.key`",
       () => {
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const load1 = mock.spy(() => ({}));
         const load2 = mock.spy(() => ({}));
         asserts.assertStrictEquals(
@@ -333,24 +337,28 @@ Deno.test("new Dependency(init)", async (t) => {
     await t.step(
       "should throw an error if no hoist target is available",
       () => {
-        const rootScope = count();
         const childScope = NaN;
-        const root = new Dependency({ load: () => {}, scope: rootScope });
-        const child = root.link({
+        const parentScope = count();
+        const parent = new Dependency().link({
+          key: count(),
+          load: () => {},
+          scope: parentScope,
+        });
+        const child = parent.link({
           key: count(),
           load: () => {},
           scope: childScope,
         });
 
-        root.link({ hoist: true, key: count(), load: () => {} });
-        root.link({ hoist: false, key: count(), load: () => {} });
-        root.link({
+        parent.link({ hoist: true, key: count(), load: () => {} });
+        parent.link({ hoist: false, key: count(), load: () => {} });
+        parent.link({
           hoist: { acceptRoot: true, scope: count() },
           key: count(),
           load: () => {},
         });
-        root.link({
-          hoist: { acceptRoot: false, scope: rootScope },
+        parent.link({
+          hoist: { acceptRoot: false, scope: parentScope },
           key: count(),
           load: () => {},
         });
@@ -362,7 +370,7 @@ Deno.test("new Dependency(init)", async (t) => {
         });
 
         asserts.assertThrows(() => {
-          root.link({
+          parent.link({
             hoist: { acceptRoot: false, scope: count() },
             key: count(),
             load: () => {},
@@ -374,25 +382,26 @@ Deno.test("new Dependency(init)", async (t) => {
     await t.step(
       "should return the same hoisted dependency instance for the same `descriptor.key` and `descriptor.hoist`",
       () => {
-        const root = new Dependency({ load: () => {}, scope: "root" });
-        const depA = root.link({ key: count(), load: () => {}, scope: "a" });
-        const depB = root.link({ key: count(), load: () => {}, scope: "b" });
-        const descriptor1: DependencyDescriptor<unknown, string, unknown> = {
+        const root = new Dependency();
+        const parent = root.link({ key: count(), load: () => {}, scope: "#" });
+        const depA = parent.link({ key: count(), load: () => {}, scope: "a" });
+        const depB = parent.link({ key: count(), load: () => {}, scope: "b" });
+        const descriptor1: DependencyDescriptor<unknown, unknown, unknown> = {
           hoist: true,
           key: count(),
           load: () => {},
         };
-        const descriptor2: DependencyDescriptor<unknown, string, unknown> = {
-          hoist: { acceptRoot: false, scope: "root" },
+        const descriptor2: DependencyDescriptor<unknown, unknown, unknown> = {
+          hoist: { acceptRoot: false, scope: "#" },
           key: count(),
           load: () => {},
         };
-        const descriptor3: DependencyDescriptor<unknown, string, unknown> = {
+        const descriptor3: DependencyDescriptor<unknown, unknown, unknown> = {
           hoist: { acceptRoot: true, scope: "" },
           key: count(),
           load: () => {},
         };
-        const descriptor4: DependencyDescriptor<unknown, string, unknown> = {
+        const descriptor4: DependencyDescriptor<unknown, unknown, unknown> = {
           hoist: false,
           key: count(),
           load: () => {},
@@ -416,7 +425,7 @@ Deno.test("new Dependency(init)", async (t) => {
     await t.step(
       "should throw an assertion when invoked after the dependency has been revoked",
       () => {
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const key = count();
         const dep = root.link({ key, load: () => {} });
 
@@ -431,7 +440,7 @@ Deno.test("new Dependency(init)", async (t) => {
     await t.step(
       "should do nothing if no reference record is found for the `key`",
       () => {
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const key = count();
         root.unlink(key);
         asserts.assertStrictEquals(root.link({ key, load: () => 1 }).value, 1);
@@ -441,7 +450,7 @@ Deno.test("new Dependency(init)", async (t) => {
     );
 
     await t.step("should not revoke the reachable dependency", () => {
-      const root = new Dependency({ load: () => {} });
+      const root = new Dependency();
       const keyA = count();
       const keyB = count();
       const loadC = mock.spy(() => ({}));
@@ -470,7 +479,7 @@ Deno.test("new Dependency(init)", async (t) => {
       const finalization = new FinalizationRegistry<string>((token) => {
         cleanedToken.add(token);
       });
-      const root = new Dependency({ load: () => {} });
+      const root = new Dependency();
       const keyB = count();
       const keyC = count();
       const loadA = () => {
@@ -525,7 +534,7 @@ Deno.test("new Dependency(init)", async (t) => {
     await t.step(
       "should invoke `init.unload?.()` after the dependency has been revoked",
       () => {
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const key = count();
         const load = mock.spy(() => ({}));
         const unload = mock.spy(() => {});
@@ -550,7 +559,7 @@ Deno.test("new Dependency(init)", async (t) => {
       "should delay the execution of `init.unload()` until the dependency collection is completed, " +
         "so as to avoid dependency collection being interrupted by the error thrown by `init.unload()`",
       () => {
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const keyA = count();
         const keyB = count();
         const unloadA = mock.spy(() => {
@@ -586,7 +595,7 @@ Deno.test("new Dependency(init)", async (t) => {
       () => {
         const load = mock.spy(() => ({}));
         const unload = mock.spy(() => {});
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const key = count();
         root.link({ key, load, unload });
 
@@ -605,7 +614,7 @@ Deno.test("new Dependency(init)", async (t) => {
     await t.step(
       "should throw an assertion when invoked after the dependency has been revoked",
       () => {
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const key = count();
         const dep = root.link({ key, load: () => {} });
 
@@ -620,7 +629,7 @@ Deno.test("new Dependency(init)", async (t) => {
     await t.step(
       "should do nothing if no reference record is found for the `key`",
       () => {
-        const root = new Dependency({ load: () => {} });
+        const root = new Dependency();
         const key = count();
         root.weaken(key, {});
         asserts.assertStrictEquals(root.link({ key, load: () => 1 }).value, 1);
@@ -633,7 +642,7 @@ Deno.test("new Dependency(init)", async (t) => {
         async () => {
           let handle: DependencyWeakReferenceHandle;
 
-          const root = new Dependency({ load: () => {} });
+          const root = new Dependency();
           const key = count();
           const load = mock.spy(() => ({}));
           const unload = mock.spy(() => {});
@@ -675,7 +684,7 @@ Deno.test("new Dependency(init)", async (t) => {
         async () => {
           let handle: DependencyWeakReferenceHandle;
 
-          const root = new Dependency({ load: () => {} });
+          const root = new Dependency();
           const [key1, key2] = [count(), count()];
           const [load1, load2] = [mock.spy(() => ({})), mock.spy(() => ({}))];
           const dep1 = root.link({ key: key1, load: load1 });

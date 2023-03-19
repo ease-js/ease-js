@@ -72,8 +72,8 @@
  *
  * ## 用法与限制
  *
- * 当你通过 `new Dependency(init)` 创建一个 Dependency 实例时，此实例一定是挂载树的根节点；换句话说，你无法通过
- * `new Dependency(init)` 创建子依赖之后连通到已经存在的挂载树与引用关系图中，这是为了确保
+ * 当你通过 `new Dependency()` 创建一个 Dependency 实例时，此实例一定是挂载树的根节点；换句话说，你无法通过
+ * `new Dependency()` 创建子依赖之后连通到已经存在的挂载树与引用关系图中，这是为了确保
  * Dependency 实例的内部数据具备充足的安全性，保障内部依赖回收机制不会轻易受到外界影响。
  *
  * Dependency 提供了 `link()` 与 `unlink()` 两个公共方法分别用于添加与删除依赖的引用关系，
@@ -176,7 +176,7 @@
  * 被 React 释放，对应的依赖也将被我们回收：
  *
  * ```ts
- * const root = new Dependency(...);
+ * const root = new Dependency();
  * const DemoDescriptor = { ... };
  *
  * export function useWeakDependency() {
@@ -201,11 +201,9 @@ import { revoke } from "../tools/revocable.ts";
 const NeverScope = Symbol("NeverScope");
 
 /**
- * 对一项依赖的描述，相对于仅包含依赖自身信息的 {@link DependencyInit} ，此接口还包含
- * {@link DependencyDescriptor.hoist|hoist} 等与外部关系的限制条件的描述。
+ * 对一项依赖的描述。
  */
-export interface DependencyDescriptor<Key, Scope, Value = unknown>
-  extends DependencyInit<Key, Scope, Value> {
+export interface DependencyDescriptor<Key, Scope, Value = unknown> {
   /**
    * 此依赖被安装时的提升规则。配置为 `true` 则提升到根节点；不配置此选项、或者传入 `false`
    * 则不会被提升，也就无法被共享。
@@ -215,6 +213,24 @@ export interface DependencyDescriptor<Key, Scope, Value = unknown>
    * 当前依赖的唯一标识。
    */
   readonly key: Key;
+  /**
+   * 当前节点保存的具有实际使用价值的内容，提供给引用此依赖的其他依赖使用。只有首次访问
+   * {@link Dependency.value} 时会调用此函数进行创建。
+   */
+  readonly load: (dependency: Dependency<Key, Scope, Value>) => Value;
+  /**
+   * 当前节点的依赖共享范围的句柄。假如后代依赖想要在此节点共享依赖，则需要指定同一个
+   * {@link DependencyHoistConfig.scope|scope} 取值才能成功安装在此节点下。
+   *
+   * @description
+   * 对于非根节点的依赖，不配置此项、或者传入 `undefined` 则不允许任何共享依赖安装在此处。
+   */
+  readonly scope?: Scope;
+  /**
+   * 当前节点被回收后，调用此函数进行清理。如果 {@link load|load()} 未曾被调用，则不会执行
+   * {@link unload|unload()} 。
+   */
+  readonly unload?: (value: Value) => void;
 }
 
 /**
@@ -231,30 +247,6 @@ export interface DependencyHoistConfig<Scope> {
    * 当此依赖被安装时，应当提升到哪个范围下。
    */
   readonly scope: Scope;
-}
-
-/**
- * 创建一项依赖所需的初始配置。
- */
-export interface DependencyInit<Key, Scope, Value = unknown> {
-  /**
-   * 当前节点保存的具有实际使用价值的内容，提供给引用此依赖的其他依赖使用。只有首次访问
-   * {@link Dependency.value} 时会调用此函数进行创建。
-   */
-  readonly load: (dependency: Dependency<Key, Scope, Value>) => Value;
-  /**
-   * 当前节点的依赖共享范围的句柄。假如后代依赖想要在此节点共享依赖，则需要指定同一个
-   * {@link DependencyHoistConfig.scope|scope} 取值才能成功安装在此节点下。
-   *
-   * @description
-   * 对于非根节点的依赖，不配置此项、或者传入 `null` 与 `undefined` 则不允许任何共享依赖安装在此处。
-   */
-  readonly scope?: Scope | null;
-  /**
-   * 当前节点被回收后，调用此函数进行清理。如果 {@link load|load()} 未曾被调用，则不会执行
-   * {@link unload|unload()} 。
-   */
-  readonly unload?: (value: Value) => void;
 }
 
 /**
@@ -284,9 +276,9 @@ export class Dependency<Key, Scope, Value = unknown> {
    */
   #referrers: Set<Dependency<Key, Scope>> | undefined;
   /**
-   * 当前节点的 {@link DependencyInit.scope|scope} ，用于后代节点选择共享依赖的边界范围。
+   * 当前节点的 {@link DependencyDescriptor.scope|scope} ，用于后代节点选择共享依赖的边界范围。
    */
-  #scope: Scope | typeof NeverScope;
+  #scope: Scope | typeof NeverScope = NeverScope;
   /**
    * 当前节点保存的值。
    */
@@ -295,22 +287,6 @@ export class Dependency<Key, Scope, Value = unknown> {
    * 弱引用依赖的注册中心。
    */
   #weak: FinalizationRegistry<Key> | undefined;
-
-  constructor(init: DependencyInit<Key, Scope, Value>) {
-    const { load, scope, unload } = init;
-    asserts.assert(typeof load === "function");
-    asserts.assert(unload === undefined || typeof unload === "function");
-
-    this.#scope = scope ?? NeverScope;
-    this.#value = () => {
-      // 在调用 this.#value() 的过程中，再次访问 dependency.value 不会重复调用此函数
-      this.#value = undefined;
-      const value = load(this);
-      this.#value = () => value;
-      if (unload) this.#value.unload = () => unload(value);
-      return value;
-    };
-  }
 
   /**
    * 读取当前节点保存的值，在完成初始化之前，此属性不可以被读取。
@@ -347,9 +323,12 @@ export class Dependency<Key, Scope, Value = unknown> {
   link(descriptor: DependencyDescriptor<Key, Scope>): Dependency<Key, Scope> {
     revoke.assert(this);
 
-    const { hoist, key } = descriptor;
+    const { key } = descriptor;
+
     return emplaceMap(this.#references ??= new Map(), key, {
       insert: () => {
+        const { hoist } = descriptor;
+
         // deno-lint-ignore no-this-alias
         let parent: Dependency<Key, Scope> = this;
 
@@ -368,13 +347,32 @@ export class Dependency<Key, Scope, Value = unknown> {
 
         const reference = emplaceMap(parent.#children ??= new Map(), key, {
           insert: () => {
-            const child = new Dependency<Key, Scope>(descriptor);
+            const { load, scope = NeverScope, unload } = descriptor;
+            asserts.assert(typeof load === "function");
+            asserts.assert(
+              typeof unload === "function" || typeof unload === "undefined",
+            );
+
+            const child = new Dependency<Key, Scope>();
+
             child.#parent = [parent, key];
+            child.#scope = scope;
+            child.#value = () => {
+              // 在调用 #value() 的过程中，再次访问 dependency.value 不会重复调用此函数
+              child.#value = undefined;
+              const value = load(child);
+              child.#value = () => value;
+              if (unload) child.#value.unload = () => unload(value);
+              return value;
+            };
+
             return child;
           },
         });
+
         reference.#referrers ??= new Set();
         reference.#referrers.add(this);
+
         return reference;
       },
     });
