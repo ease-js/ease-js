@@ -8,7 +8,7 @@ jobs:
   Lint:
     strategy:
       matrix:
-        deno: [v1.x]
+        deno: [^1.32.0]
         os: [macos-12, ubuntu-22.04]
     name: Lint (deno-${{ matrix.deno }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -31,7 +31,7 @@ jobs:
   Test:
     strategy:
       matrix:
-        deno: [v1.x]
+        deno: [^1.32.0]
         os: [macos-12, ubuntu-22.04]
     name: Test (deno-${{ matrix.deno }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
