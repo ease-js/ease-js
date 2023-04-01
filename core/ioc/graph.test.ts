@@ -324,12 +324,15 @@ Deno.test("new DependencyNode()", async (t) => {
         const defB = __def(load, false);
         const defC = __def(load, true);
         const defD = __def(load, "parent");
-        const defE = __def(load, "d");
-        const defF = __def(load, false);
+        const defE = __def(load, false);
+        const defF = __def(load, "d");
         const parent = root.link("parent", parentDef);
         const nodeA = parent.link("a", defA);
         const nodeB = parent.link("b", defB);
 
+        // 复用已经安装过的依赖
+        asserts.assertStrictEquals(nodeA.link("a", defA), nodeA);
+        asserts.assertStrictEquals(nodeB.link("b", defB), nodeB);
         asserts.assertStrictEquals(
           nodeA.link("a", defA),
           nodeB.link("a", defA),
@@ -338,18 +341,22 @@ Deno.test("new DependencyNode()", async (t) => {
           nodeA.link("b", defB),
           nodeB.link("b", defB),
         );
+        // 复用提升到根节点的依赖
         asserts.assertStrictEquals(
           nodeA.link("c", defC),
           nodeB.link("c", defC),
         );
+        // 复用提升到指定节点的依赖
         asserts.assertStrictEquals(
           nodeA.link("d", defD),
           nodeB.link("d", defD),
         );
+        // 不进行提升的节点
         asserts.assertNotStrictEquals(
           nodeA.link("e", defE),
           nodeB.link("e", defE),
         );
+        // 无法提升到指定节点，则安装在当前节点不提升
         asserts.assertNotStrictEquals(
           nodeA.link("f", defF),
           nodeB.link("f", defF),

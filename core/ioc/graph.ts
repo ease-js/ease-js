@@ -268,7 +268,11 @@ export class DependencyNode<Payload = unknown> {
    * 非根节点的信息，包括其索引与父节点。
    */
   #tree:
-    | { readonly key: DependencyKey; readonly parent: AnyDependencyNode }
+    | {
+      readonly key: DependencyKey;
+      readonly parent: AnyDependencyNode;
+      readonly shadow: boolean;
+    }
     | undefined;
   /**
    * 弱引用依赖的注册中心。
@@ -297,10 +301,12 @@ export class DependencyNode<Payload = unknown> {
   }
 
   /**
-   * 删除所有依赖引用关系，期间将自动完成依赖的回收。
+   * 删除所有依赖引用关系，包括影子节点，期间将自动完成依赖的回收。
    */
   clear(): void {
+    // 1. 检查当前节点是否已经被回收
     this.#assertRevoked();
+    // 2. 删除所有依赖引用关系，并进行垃圾回收
     const references = this.#references;
     if (!references) return;
     this.#references = undefined;
@@ -314,26 +320,50 @@ export class DependencyNode<Payload = unknown> {
     key: DependencyKey,
     definition: DependencyDefinition<RefPayload>,
   ): DependencyNode<RefPayload> {
+    // 1. 检查当前节点是否已经被回收
     this.#assertRevoked();
 
+    // 2. 检查当前节点是否已经存在记录在册的依赖关系
     return emplaceMap(this.#references ??= new Map(), key, {
       insert: (): AnyDependencyNode => {
         const { hoist, load } = definition;
 
+        // 3. 不存在依赖关系，先尝试向上检索
         // deno-lint-ignore no-this-alias
         let node: AnyDependencyNode | undefined = this;
-        let parent: AnyDependencyNode = node;
+        let parent: AnyDependencyNode | undefined;
         let reference: AnyDependencyNode | undefined;
+        let shadow: AnyDependencyNode | undefined;
 
         do {
+          // 3.1 检查祖先节点是否存在可复用的节点
           reference = node.#children?.get(key);
           if (reference) break;
 
-          if (hoist === true) parent = node;
-          else if (Object.is(node.#tree?.key, hoist)) parent = node;
+          // 3.2 与此同时，尝试查找 definition.hoist 指定的提升目标
+          if (hoist === true) {
+            // 3.2.1 需要提升到根节点，则每次循环都更新，直到根节点退出循环
+            parent = node;
+          } else if (hoist === false) {
+            // 3.2.2 不需要提升，不做任何处理
+            // noop
+          } else if (node.#tree && !parent) {
+            // 3.2.3 需要提升到指定节点，但是暂未到达根节点、并且之前没有找到过匹配目标
+            if (node.#tree.shadow) {
+              // 影子节点，暂时不能确定是否匹配
+              shadow ??= node;
+            } else {
+              // 普通节点
+              // 使用节点的 key 与 hoist 进行匹配
+              if (Object.is(node.#tree.key, hoist)) parent = shadow ?? node;
+              shadow = undefined;
+            }
+          }
         } while ((node = node.#tree?.parent));
 
+        // 4. 未找到可复用的实例，创建新的实例
         if (!reference) {
+          // 4.1 创建节点
           reference = new DependencyNode<RefPayload>();
           reference.#payload = function () {
             this.#payload = undefined;
@@ -341,17 +371,49 @@ export class DependencyNode<Payload = unknown> {
             this.#payload = () => payload;
             return payload;
           };
-          reference.#tree = { key, parent };
+
+          // 4.2 设置新节点的结构信息
+          parent ??= this;
+          reference.#tree = { key, parent, shadow: false };
           parent.#children ??= new Map();
           parent.#children.set(key, reference);
         }
 
+        // 5. 建立依赖引用关系
         reference.#referrers ??= new Set();
         reference.#referrers.add(this);
 
         return reference;
       },
     });
+  }
+
+  /**
+   * 创建一个当前节点的影子节点。
+   *
+   * @returns 返回影子节点及其标识，你可以使用 {@link unlink|unlink(key)} 回收影子节点。
+   */
+  shadow(): { key: DependencyKey; shadow: DependencyNode<Payload> } {
+    // 1. 检查当前节点是否已经被回收
+    this.#assertRevoked();
+
+    // 2. 创建影子节点
+    const key = Symbol("shadow");
+    const shadow = new DependencyNode<Payload>();
+    shadow.#payload = () => this.payload;
+
+    // 3. 设置影子节点的结构信息
+    shadow.#tree = { key, parent: this, shadow: true };
+    this.#children ??= new Map();
+    this.#children.set(key, shadow);
+
+    // 4. 建立依赖引用关系
+    shadow.#referrers = new Set([this]);
+    this.#references ??= new Map();
+    this.#references.set(key, shadow);
+
+    // 5. 返回影子节点及其标识
+    return { key, shadow };
   }
 
   /**

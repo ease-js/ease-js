@@ -153,13 +153,17 @@ export class DepAgent {
   ref<T extends AnyDepLike>(dep: T): PayloadOfDep<T> {
     const { factory, hoist, key } = this.#registry.resolve(dep);
     return this.#node.link<PayloadOfDep<T>>(key, {
-      hoist: hoist,
+      hoist,
       load: (node) => factory(new DepAgent(node, this.#registry)),
     }).payload;
   }
 
-  shadow(): DepAgent {
-    asserts.unimplemented();
+  shadow(): { revoke: () => void; shadow: DepAgent } {
+    const { key, shadow } = this.#node.shadow();
+    return {
+      revoke: () => this.#node.unlink(key),
+      shadow: new DepAgent(shadow, this.#registry),
+    };
   }
 
   /**
@@ -210,9 +214,7 @@ export type DepKey = NewableFunction | symbol;
 /**
  * 一项依赖的声明 {@link Dep} ，或者一项可以转换为依赖声明的内容。
  */
-export type DepLike<Payload> =
-  | ClassDep<Payload>
-  | Dep<Payload>;
+export type DepLike<Payload> = ClassDep<Payload> | Dep<Payload>;
 
 /**
  * 依赖的元信息。
