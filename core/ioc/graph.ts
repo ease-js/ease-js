@@ -93,16 +93,13 @@
  *
  * ### 共享依赖
  *
- * 调用 `node.link(key, definition)` 建立引用关系时，总是会先从当前节点开始向上查找与
- * `key` 匹配的已经存在的依赖，如果不存在才进行安装，然后与当前节点建立引用关系。
- *
- * 安装依赖时，将根据 `definition.hoist` 字段决定安装策略：
+ * 调用 `node.link(key, definition)` 建立引用关系时，将根据 `definition.hoist`
+ * 字段决定共享与安装策略：
  *
  * - 当 `hoist` 缺省、或者配置为 `false` 时，总是安装在当前节点。
- * - 当 `hoist` 配置为 `true` 时，总是安装在根节点。
- * - 其他情况下，将从当前节点开始向上查找 `hoist` 指定的祖先节点（含当前节点）：
- *   - 如果存在符合条件的节点，则安装在此节点。
- *   - 如果不存在符合条件的节点，则安装在当前节点，与 `hoist: false` 行为相同。
+ * - 当 `hoist` 配置为 `true` 时，则以根节点作为提升目标，否则将从当前节点开始查找最近的与
+ *   `hoist` 匹配的节点作为提升目标，没有匹配节点则以当前节点作为提升目标；
+ *   向上查找期间，如果存在 `key` 相同的已安装节点，则优先使用，否则将在提升目标下安装新节点。
  *
  * 需要注意的是，安装与引用不是一回事。例如下图中，左侧是挂载树、右侧是引用关系， A 与 B 引用了共享依赖
  * C ，但是 C 被安装在 ROOT 下；当 A 与 B 均解除了对 C 的引用关系时， C 将被自动从 ROOT 上移除。
@@ -330,40 +327,43 @@ export class DependencyNode<Payload = unknown> {
 
         // 3. 不存在依赖关系，先尝试向上检索
         // deno-lint-ignore no-this-alias
-        let node: AnyDependencyNode | undefined = this;
-        let parent: AnyDependencyNode | undefined;
-        let reference: AnyDependencyNode | undefined;
-        let shadow: AnyDependencyNode | undefined;
+        let parent: AnyDependencyNode = this;
 
-        do {
-          // 3.1 检查祖先节点是否存在可复用的节点
-          reference = node.#children?.get(key);
-          if (reference) break;
+        if (hoist === true) {
+          // 3.1. 需要提升到根节点，则无条件循环检索提升目标
+          while (parent.#tree && !parent.#children?.has(key)) {
+            parent = parent.#tree.parent;
+          }
+        } else if (hoist === false) {
+          // 3.2. 不需要提升，则不需要检索
+        } else {
+          // 3.3. 需要提升到指定节点，在提升目标之下如果检索到可复用节点则优先使用
+          // 注意，如果不存在匹配的提升目标，不能提升到根节点，避免将所有相关的依赖全部往上提升
+          for (
+            let candidate: AnyDependencyNode | undefined,
+              node: AnyDependencyNode = parent,
+              shadow: AnyDependencyNode | undefined;
+            node.#tree;
+            node = node.#tree.parent
+          ) {
+            if (!candidate && node.#children?.has(key)) candidate = node;
 
-          // 3.2 与此同时，尝试查找 definition.hoist 指定的提升目标
-          if (hoist === true) {
-            // 3.2.1 需要提升到根节点，则每次循环都更新，直到根节点退出循环
-            parent = node;
-          } else if (hoist === false) {
-            // 3.2.2 不需要提升，不做任何处理
-            // noop
-          } else if (node.#tree && !parent) {
-            // 3.2.3 需要提升到指定节点，但是暂未到达根节点、并且之前没有找到过匹配目标
             if (node.#tree.shadow) {
-              // 影子节点，暂时不能确定是否匹配
               shadow ??= node;
+            } else if (Object.is(node.#tree.key, hoist)) {
+              parent = candidate ?? shadow ?? node;
+              break;
             } else {
-              // 普通节点
-              // 使用节点的 key 与 hoist 进行匹配
-              if (Object.is(node.#tree.key, hoist)) parent = shadow ?? node;
               shadow = undefined;
             }
           }
-        } while ((node = node.#tree?.parent));
+        }
 
-        // 4. 未找到可复用的实例，创建新的实例
+        // 4. 如果未找到可复用的实例，则创建新的实例
+        let reference = parent.#children?.get(key);
+
         if (!reference) {
-          // 4.1 创建节点
+          // 4.1. 创建节点
           reference = new DependencyNode<RefPayload>();
           reference.#payload = function () {
             this.#payload = undefined;
@@ -372,8 +372,7 @@ export class DependencyNode<Payload = unknown> {
             return payload;
           };
 
-          // 4.2 设置新节点的结构信息
-          parent ??= this;
+          // 4.2. 设置新节点的结构信息
           reference.#tree = { key, parent, shadow: false };
           parent.#children ??= new Map();
           parent.#children.set(key, reference);
@@ -400,19 +399,32 @@ export class DependencyNode<Payload = unknown> {
     // 2. 创建影子节点
     const key = Symbol("shadow");
     const shadow = new DependencyNode<Payload>();
-    shadow.#payload = () => this.payload;
 
-    // 3. 设置影子节点的结构信息
+    // 3. 设置影子节点的有效载荷
+    // deno-lint-ignore no-this-alias
+    let nonShadowAncestor: DependencyNode<Payload> = this;
+    while (nonShadowAncestor.#tree?.shadow) {
+      nonShadowAncestor = nonShadowAncestor.#tree.parent;
+    }
+    shadow.#payload = function () {
+      asserts.assert(
+        nonShadowAncestor.#payload,
+        "the payload is not available",
+      );
+      return nonShadowAncestor.#payload();
+    };
+
+    // 4. 设置影子节点的结构信息
     shadow.#tree = { key, parent: this, shadow: true };
     this.#children ??= new Map();
     this.#children.set(key, shadow);
 
-    // 4. 建立依赖引用关系
+    // 5. 建立依赖引用关系
     shadow.#referrers = new Set([this]);
     this.#references ??= new Map();
     this.#references.set(key, shadow);
 
-    // 5. 返回影子节点及其标识
+    // 6. 返回影子节点及其标识
     return { key, shadow };
   }
 
@@ -420,8 +432,10 @@ export class DependencyNode<Payload = unknown> {
    * 删除依赖引用关系，期间将自动完成依赖的回收。
    */
   unlink(...keys: DependencyKey[]): void {
+    // 1. 检查当前节点是否已经被回收
     this.#assertRevoked();
 
+    // 2. 删除指定依赖的引用关系，并进行垃圾回收
     const references = this.#references;
     if (!references) return;
 
@@ -440,14 +454,17 @@ export class DependencyNode<Payload = unknown> {
    * 将已存在的依赖引用关系转为弱引用，如果传入 `null` 则恢复为强引用。
    */
   weaken(key: DependencyKey, handle: DependencyWeakRefHandle | null): void {
+    // 1. 检查当前节点是否已经被回收
     this.#assertRevoked();
 
+    // 2. 获取依赖引用关系
     const reference = this.#references?.get(key);
     if (!reference) return;
 
-    // 移除上一次注册的 handle
+    // 3. 移除上一次注册的 handle ，恢复为强引用
     this.#weak?.unregister(reference);
 
+    // 4. 当 handle 非空时，注册至 FinalizationRegistry ，转为弱引用
     if (handle) {
       this.#weak ??= new FinalizationRegistry((heldValue) => {
         this.unlink(heldValue);
@@ -456,6 +473,18 @@ export class DependencyNode<Payload = unknown> {
     }
   }
 
+  [Symbol.for("Deno.customInspect")](
+    _inspect?: typeof Deno.inspect,
+    options?: Deno.InspectOptions,
+  ): string {
+    if (this.#revoked) return "DependencyNode <revoked>";
+    const content = { key: this.#tree?.key, parent: this.#tree?.parent };
+    return `DependencyNode ${Deno.inspect(content, options)}`;
+  }
+
+  /**
+   * 检查当前节点是否已经被回收。
+   */
   #assertRevoked(): void {
     asserts.assertFalse(this.#revoked, "dependency has been revoked");
   }

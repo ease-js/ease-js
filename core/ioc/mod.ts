@@ -141,7 +141,7 @@ export class DepAgent {
   }
 
   /**
-   * 解除对所有依赖的引用关系。
+   * 解除对所有依赖的引用关系，包括影子节点。
    */
   clear(): void {
     this.#node.clear();
@@ -158,6 +158,9 @@ export class DepAgent {
     }).payload;
   }
 
+  /**
+   * 创建一个影子节点。
+   */
   shadow(): { revoke: () => void; shadow: DepAgent } {
     const { key, shadow } = this.#node.shadow();
     return {
@@ -239,15 +242,18 @@ export interface DepMeta {
 export class DepRegistry {
   readonly #deps = new WeakMap<Exclude<AnyDepLike, AnyDep>, AnyDep>();
 
-  resolve<T extends AnyDepLike>(unresolved: T): Dep<PayloadOfDep<T>> {
-    if (unresolved instanceof Dep) return unresolved;
+  /**
+   * 获取 {@link depLike} 在当前 {@link DepRegistry} 内的的依赖声明。
+   */
+  resolve<T extends AnyDepLike>(depLike: T): Dep<PayloadOfDep<T>> {
+    if (depLike instanceof Dep) return depLike;
 
-    return emplaceMap(this.#deps, unresolved, {
-      insert: (depLike) => {
+    return emplaceMap(this.#deps, depLike, {
+      insert: (provide) => {
         return new Dep({
-          ...(Object.hasOwn(depLike, depMeta) ? depLike[depMeta] : undefined),
-          factory: (agent) => new depLike(agent),
-          provide: depLike,
+          ...(Object.hasOwn(provide, depMeta) ? provide[depMeta] : undefined),
+          factory: (agent) => new provide(agent),
+          provide,
         });
       },
     });
