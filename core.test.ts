@@ -3,7 +3,8 @@ import * as mod from "./core.ts";
 
 Deno.test("module", () => {
   // ioc
-  asserts.assert("container" in mod);
-  asserts.assert("createDependencyContainer" in mod);
-  asserts.assert("destructor" in mod);
+  asserts.assert("Dep" in mod);
+  asserts.assert("DepAgent" in mod);
+  asserts.assert("DepRegistry" in mod);
+  asserts.assert("depMeta" in mod);
 });
