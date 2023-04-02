@@ -243,6 +243,13 @@ export class DepRegistry {
   readonly #deps = new WeakMap<Exclude<AnyDepLike, AnyDep>, AnyDep>();
 
   /**
+   * 创建一个新的依赖根节点，并返回对应的 {@link DepAgent} 。
+   */
+  createRoot(): DepAgent {
+    return new DepAgent(new graph.DependencyNode(), this);
+  }
+
+  /**
    * 获取 {@link depLike} 在当前 {@link DepRegistry} 内的的依赖声明。
    */
   resolve<T extends AnyDepLike>(depLike: T): Dep<PayloadOfDep<T>> {

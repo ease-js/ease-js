@@ -582,6 +582,7 @@ Deno.test("new DependencyNode()", async (t) => {
       const hoistMap: Record<string, AnyDependencyDefinition["hoist"]> = {
         a: true,
       };
+      const shadowUnload = mock.spy();
       const [a, b, c] = ["a", "b", "c"].map((key) => {
         const unload = mock.spy();
         const load = (node: AnyDependencyNode): unknown => {
@@ -601,6 +602,13 @@ Deno.test("new DependencyNode()", async (t) => {
       asserts.assert(typeof nodeA.payload === "object");
       asserts.assert(typeof nodeB.payload === "object");
       asserts.assert(typeof nodeC.payload === "object");
+
+      const { key: shadowKey, shadow } = root.shadow();
+      shadow.stack.defer(shadowUnload);
+      mock.assertSpyCalls(shadowUnload, 0);
+      asserts.assertStrictEquals(nodeA, shadow.link(a.key, a.def));
+      root.unlink(shadowKey);
+      mock.assertSpyCalls(shadowUnload, 1);
 
       root.unlink(a.key, c.key);
       mock.assertSpyCalls(a.unload, 1);
@@ -791,7 +799,7 @@ Deno.test("new DependencyNode()", async (t) => {
     }
   });
 
-  await t.step(`[Symbol.for("Deno.customInspect")]()`, async (t) => {
+  await t.step(`[@@Deno.customInspect]()`, async (t) => {
     await t.step("should return a human-readable string", () => {
       const root = new DependencyNode();
       const node = root.link("key", __def(() => ({})));
