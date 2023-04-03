@@ -255,6 +255,11 @@ export class DepRegistry {
   resolve<T extends AnyDepLike>(depLike: T): Dep<PayloadOfDep<T>> {
     if (depLike instanceof Dep) return depLike;
 
+    asserts.assert(
+      typeof depLike === "function",
+      "depLike is neither a Dep nor a constructor",
+    );
+
     return emplaceMap(this.#deps, depLike, {
       insert: (provide) => {
         return new Dep({

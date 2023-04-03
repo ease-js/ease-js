@@ -39,7 +39,7 @@ Deno.test("class Dep", async (t) => {
       const dep = new Dep({ factory: () => {} });
       const invalidValues = [
         ...[1n, 1, false, true, "", Symbol()],
-        ...[{}, class {}, null, undefined],
+        ...[{}, class {}, null, undefined, Object.create(dep)],
         ...[Object.setPrototypeOf({}, Dep.prototype), new Proxy(dep, {})],
       ];
 
@@ -156,14 +156,14 @@ Deno.test("new Dep(init)", async (t) => {
     asserts.assert(Object.isFrozen(new Dep({ factory: () => {} })));
   });
 
-  await t.step("Dep.factory", async (t) => {
+  await t.step("dep.factory", async (t) => {
     await t.step("should equal to the `init.factory`", () => {
       function factory() {}
       asserts.assertStrictEquals(new Dep({ factory }).factory, factory);
     });
   });
 
-  await t.step("Dep.hoist", async (t) => {
+  await t.step("dep.hoist", async (t) => {
     await t.step("should be resolved from `init.hoist`", () => {
       class Demo {}
       function factory() {}
@@ -197,7 +197,7 @@ Deno.test("new Dep(init)", async (t) => {
     });
   });
 
-  await t.step("Dep.key", async (t) => {
+  await t.step("dep.key", async (t) => {
     await t.step("should be resolved from `init.provide`", () => {
       class Demo {}
       function factory() {}
