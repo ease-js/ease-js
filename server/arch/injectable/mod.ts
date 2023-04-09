@@ -1,5 +1,5 @@
-import { asserts } from "../deps.ts";
-import { emplaceMap } from "../tools/emplace.ts";
+import { emplaceMap } from "../../../tools/collections/emplace.ts";
+import { assert } from "../../../tools/std/testing/asserts.ts";
 import * as graph from "./graph.ts";
 
 /**
@@ -77,10 +77,7 @@ export class Dep<Payload> implements DepMeta {
     const { factory, hoist = false, name, provide } = init;
 
     {
-      asserts.assert(
-        typeof factory === "function",
-        "factory is not a function",
-      );
+      assert(typeof factory === "function", "factory is not a function");
       this.factory = factory;
     }
 
@@ -92,7 +89,7 @@ export class Dep<Payload> implements DepMeta {
           this.hoist = hoist;
           break;
         default:
-          asserts.assert(hoist instanceof Dep, "invalid hoist config");
+          assert(hoist instanceof Dep, "invalid hoist config");
           this.hoist = hoist.key;
           break;
       }
@@ -110,7 +107,7 @@ export class Dep<Payload> implements DepMeta {
           this.key = Symbol(this.name);
           break;
         default:
-          asserts.assert(provide instanceof Dep, "invalid provide config");
+          assert(provide instanceof Dep, "invalid provide config");
           this.name ||= provide.name;
           this.key = provide.key;
           break;
@@ -255,7 +252,7 @@ export class DepRegistry {
   resolve<T extends AnyDepLike>(depLike: T): Dep<PayloadOfDep<T>> {
     if (depLike instanceof Dep) return depLike;
 
-    asserts.assert(
+    assert(
       typeof depLike === "function",
       "depLike is neither a Dep nor a constructor",
     );

@@ -1,4 +1,4 @@
-import { asserts } from "../deps.ts";
+import { assert } from "../std/testing/asserts.ts";
 
 declare global {
   interface Disposable {
@@ -119,13 +119,13 @@ declare global {
     }
 
     adopt<T>(value: T, onDispose: (value: T) => void): T {
-      asserts.assert(typeof onDispose === "function");
+      assert(typeof onDispose === "function");
       this.#ensureStack().push(() => onDispose(value));
       return value;
     }
 
     defer(onDispose: () => void): void {
-      asserts.assert(typeof onDispose === "function");
+      assert(typeof onDispose === "function");
       this.#ensureStack().push(onDispose);
     }
 

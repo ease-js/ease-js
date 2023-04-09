@@ -188,8 +188,10 @@
  * @module
  */
 
-import { asserts } from "../deps.ts";
-import { emplaceMap } from "../tools/emplace.ts";
+import "../../../tools/esnext/proposal-explicit-resource-management.ts";
+
+import { emplaceMap } from "../../../tools/collections/emplace.ts";
+import { assert, assertFalse } from "../../../tools/std/testing/asserts.ts";
 
 // deno-lint-ignore no-explicit-any
 export type AnyDependencyDefinition = DependencyDefinition<any>;
@@ -281,7 +283,7 @@ export class DependencyNode<Payload = unknown> {
    */
   get payload(): Payload {
     this.#assertRevoked();
-    asserts.assert(this.#payload, "the payload is not available");
+    assert(this.#payload, "the payload is not available");
     return this.#payload();
   }
 
@@ -407,10 +409,7 @@ export class DependencyNode<Payload = unknown> {
       nonShadowAncestor = nonShadowAncestor.#tree.parent;
     }
     shadow.#payload = function () {
-      asserts.assert(
-        nonShadowAncestor.#payload,
-        "the payload is not available",
-      );
+      assert(nonShadowAncestor.#payload, "the payload is not available");
       return nonShadowAncestor.#payload();
     };
 
@@ -486,7 +485,7 @@ export class DependencyNode<Payload = unknown> {
    * 检查当前节点是否已经被回收。
    */
   #assertRevoked(): void {
-    asserts.assertFalse(this.#revoked, "dependency has been revoked");
+    assertFalse(this.#revoked, "dependency has been revoked");
   }
 
   /**

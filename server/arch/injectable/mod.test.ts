@@ -1,12 +1,17 @@
-import { asserts } from "../deps.ts";
-// import { mock } from "../dev-deps.ts";
-
+import {
+  assert,
+  assertFalse,
+  AssertionError,
+  assertNotStrictEquals,
+  assertStrictEquals,
+  assertThrows,
+} from "../../../tools/std/testing/asserts.ts";
 import type { DepInit } from "./mod.ts";
 import { Dep } from "./mod.ts";
 
 Deno.test("class Dep", async (t) => {
   await t.step("should be frozen", () => {
-    asserts.assert(Object.isFrozen(Dep));
+    assert(Object.isFrozen(Dep));
   });
 
   await t.step("Dep.provide(provide, init)", async (t) => {
@@ -16,9 +21,9 @@ Deno.test("class Dep", async (t) => {
         class Provide {}
         const factory = () => new Provide();
         const dep = Dep.provide(Provide, { factory, hoist: true });
-        asserts.assert(dep instanceof Dep);
-        asserts.assertStrictEquals(dep.factory, factory);
-        asserts.assertStrictEquals(dep.hoist, true);
+        assert(dep instanceof Dep);
+        assertStrictEquals(dep.factory, factory);
+        assertStrictEquals(dep.hoist, true);
       },
     );
 
@@ -28,8 +33,8 @@ Deno.test("class Dep", async (t) => {
         class Provide {}
         const factory = () => new Provide();
         const dep = Dep.provide(Provide, factory);
-        asserts.assert(dep instanceof Dep);
-        asserts.assertStrictEquals(dep.factory, factory);
+        assert(dep instanceof Dep);
+        assertStrictEquals(dep.factory, factory);
       },
     );
   });
@@ -43,10 +48,10 @@ Deno.test("class Dep", async (t) => {
         ...[Object.setPrototypeOf({}, Dep.prototype), new Proxy(dep, {})],
       ];
 
-      asserts.assert(Dep[Symbol.hasInstance](dep));
+      assert(Dep[Symbol.hasInstance](dep));
 
       for (const value of invalidValues) {
-        asserts.assertFalse(Dep[Symbol.hasInstance](value));
+        assertFalse(Dep[Symbol.hasInstance](value));
       }
     });
   });
@@ -64,9 +69,9 @@ Deno.test("new Dep(init)", async (t) => {
       }
 
       for (const factory of invalidValues) {
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           new Dep({ factory } as DepInit<unknown>);
-        }, asserts.AssertionError);
+        }, AssertionError);
       }
     },
   );
@@ -85,9 +90,9 @@ Deno.test("new Dep(init)", async (t) => {
       }
 
       for (const hoist of invalidValues) {
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           new Dep({ factory: () => {}, hoist } as DepInit<unknown>);
-        }, asserts.AssertionError);
+        }, AssertionError);
       }
     },
   );
@@ -109,9 +114,9 @@ Deno.test("new Dep(init)", async (t) => {
       }
 
       for (const provide of invalidValues) {
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           new Dep({ factory: () => {}, provide } as DepInit<unknown>);
-        }, asserts.AssertionError);
+        }, AssertionError);
       }
     },
   );
@@ -125,27 +130,27 @@ Deno.test("new Dep(init)", async (t) => {
       const Anonymous = (() => class {})();
       const dep = new Dep({ factory: () => {}, name: "0" });
 
-      asserts.assertStrictEquals(
+      assertStrictEquals(
         new Dep({ factory: demo, name: "1" }).name,
         "1",
       );
-      asserts.assertStrictEquals(
+      assertStrictEquals(
         new Dep({ factory: demo, name: "2", provide: Demo }).name,
         "2",
       );
-      asserts.assertStrictEquals(
+      assertStrictEquals(
         new Dep({ factory: demo, provide: Demo }).name,
         demo.name,
       );
-      asserts.assertStrictEquals(
+      assertStrictEquals(
         new Dep({ factory: anonymous, provide: Demo }).name,
         Demo.name,
       );
-      asserts.assertStrictEquals(
+      assertStrictEquals(
         new Dep({ factory: anonymous, provide: dep }).name,
         dep.name,
       );
-      asserts.assertStrictEquals(
+      assertStrictEquals(
         new Dep({ factory: anonymous, provide: Anonymous }).name,
         "",
       );
@@ -153,13 +158,13 @@ Deno.test("new Dep(init)", async (t) => {
   );
 
   await t.step("should be frozen", () => {
-    asserts.assert(Object.isFrozen(new Dep({ factory: () => {} })));
+    assert(Object.isFrozen(new Dep({ factory: () => {} })));
   });
 
   await t.step("dep.factory", async (t) => {
     await t.step("should equal to the `init.factory`", () => {
       function factory() {}
-      asserts.assertStrictEquals(new Dep({ factory }).factory, factory);
+      assertStrictEquals(new Dep({ factory }).factory, factory);
     });
   });
 
@@ -170,30 +175,12 @@ Deno.test("new Dep(init)", async (t) => {
       const dep1 = new Dep({ factory });
       const dep2 = new Dep({ factory, provide: Demo });
 
-      asserts.assertStrictEquals(
-        new Dep({ factory }).hoist,
-        false,
-      );
-      asserts.assertStrictEquals(
-        new Dep({ factory, hoist: undefined }).hoist,
-        false,
-      );
-      asserts.assertStrictEquals(
-        new Dep({ factory, hoist: false }).hoist,
-        false,
-      );
-      asserts.assertStrictEquals(
-        new Dep({ factory, hoist: dep1 }).hoist,
-        dep1.key,
-      );
-      asserts.assertStrictEquals(
-        new Dep({ factory, hoist: dep2 }).hoist,
-        dep2.key,
-      );
-      asserts.assertStrictEquals(
-        new Dep({ factory, hoist: Demo }).hoist,
-        Demo,
-      );
+      assertStrictEquals(new Dep({ factory }).hoist, false);
+      assertStrictEquals(new Dep({ factory, hoist: undefined }).hoist, false);
+      assertStrictEquals(new Dep({ factory, hoist: false }).hoist, false);
+      assertStrictEquals(new Dep({ factory, hoist: dep1 }).hoist, dep1.key);
+      assertStrictEquals(new Dep({ factory, hoist: dep2 }).hoist, dep2.key);
+      assertStrictEquals(new Dep({ factory, hoist: Demo }).hoist, Demo);
     });
   });
 
@@ -204,21 +191,12 @@ Deno.test("new Dep(init)", async (t) => {
       const dep1 = new Dep({ factory });
       const dep2 = new Dep({ factory, provide: Demo });
 
-      asserts.assert(typeof new Dep({ factory }).key === "symbol");
-      asserts.assertNotStrictEquals(
-        new Dep({ factory }).key,
-        new Dep({ factory }).key,
-      );
+      assert(typeof new Dep({ factory }).key === "symbol");
+      assertNotStrictEquals(new Dep({ factory }).key, new Dep({ factory }).key);
 
-      asserts.assertStrictEquals(new Dep({ factory, provide: Demo }).key, Demo);
-      asserts.assertStrictEquals(
-        new Dep({ factory, provide: dep1 }).key,
-        dep1.key,
-      );
-      asserts.assertStrictEquals(
-        new Dep({ factory, provide: dep2 }).key,
-        dep2.key,
-      );
+      assertStrictEquals(new Dep({ factory, provide: Demo }).key, Demo);
+      assertStrictEquals(new Dep({ factory, provide: dep1 }).key, dep1.key);
+      assertStrictEquals(new Dep({ factory, provide: dep2 }).key, dep2.key);
     });
   });
 });

@@ -1,6 +1,18 @@
-import { asserts } from "../deps.ts";
-import { mock } from "../dev-deps.ts";
-
+import {
+  assert,
+  assertExists,
+  assertFalse,
+  assertInstanceOf,
+  AssertionError,
+  assertNotStrictEquals,
+  assertStrictEquals,
+  assertThrows,
+} from "../../../tools/std/testing/asserts.ts";
+import {
+  assertSpyCallArgs,
+  assertSpyCalls,
+  spy,
+} from "../../../tools/std/testing/mock.ts";
 import type {
   AnyDependencyDefinition,
   AnyDependencyNode,
@@ -23,33 +35,33 @@ Deno.test("new DependencyNode()", async (t) => {
 
         shadow.payload;
         node.unlink(shadowKey);
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           shadow.payload;
-        }, asserts.AssertionError);
+        }, AssertionError);
 
         node.payload;
         root.unlink("key");
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           node.payload;
-        }, asserts.AssertionError);
+        }, AssertionError);
       },
     );
 
     await t.step(
       "should throw an assertion if the current node is root",
       () => {
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           new DependencyNode().payload;
-        }, asserts.AssertionError);
+        }, AssertionError);
       },
     );
 
     await t.step(
       "should throw an assertion if the current node is a shadow of root",
       () => {
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           new DependencyNode().shadow().shadow.payload;
-        }, asserts.AssertionError);
+        }, AssertionError);
       },
     );
 
@@ -57,26 +69,26 @@ Deno.test("new DependencyNode()", async (t) => {
       "should invoke `definition.load()` when `node.payload` is accessed for the first time",
       () => {
         const root = new DependencyNode();
-        const def = __def(mock.spy(() => ({})));
+        const def = __def(spy(() => ({})));
         const node = root.link("key", def);
 
-        mock.assertSpyCalls(def.load, 0);
+        assertSpyCalls(def.load, 0);
 
         // normal node
-        asserts.assertStrictEquals(node.payload, node.payload);
-        asserts.assertStrictEquals(node.payload, def.load.calls[0].returned);
+        assertStrictEquals(node.payload, node.payload);
+        assertStrictEquals(node.payload, def.load.calls[0].returned);
         // shadow node
-        asserts.assertStrictEquals(
+        assertStrictEquals(
           node.shadow().shadow.payload,
           def.load.calls[0].returned,
         );
-        asserts.assertStrictEquals(
+        assertStrictEquals(
           node.shadow().shadow.payload,
           node.shadow().shadow.payload,
         );
 
-        mock.assertSpyCalls(def.load, 1);
-        mock.assertSpyCallArgs(def.load, 0, [node]);
+        assertSpyCalls(def.load, 1);
+        assertSpyCallArgs(def.load, 0, [node]);
       },
     );
 
@@ -84,24 +96,24 @@ Deno.test("new DependencyNode()", async (t) => {
       "should throw an assertion if the circular reference relationship is not built lazily",
       () => {
         const root = new DependencyNode();
-        const loadA = mock.spy((node: DependencyNode): unknown => {
+        const loadA = spy((node: DependencyNode): unknown => {
           return node.link("b", defB).payload;
         });
-        const loadB = mock.spy((node: DependencyNode): unknown => {
+        const loadB = spy((node: DependencyNode): unknown => {
           return node.link("a", defA).payload;
         });
         const defA = __def(loadA, false);
         const defB = __def(loadB, true);
 
         // normal node
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           root.link("a", defA).payload;
-        }, asserts.AssertionError);
+        }, AssertionError);
 
         // shadow node
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           root.link("c", __def((node) => node.shadow().shadow.payload)).payload;
-        }, asserts.AssertionError);
+        }, AssertionError);
       },
     );
 
@@ -111,9 +123,9 @@ Deno.test("new DependencyNode()", async (t) => {
         const root = new DependencyNode();
         const node = root.link("key", __def((instance) => instance.payload));
 
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           node.payload;
-        }, asserts.AssertionError);
+        }, AssertionError);
       },
     );
 
@@ -130,8 +142,8 @@ Deno.test("new DependencyNode()", async (t) => {
         const defA = __def(loadA, true);
         const defB = __def(loadB, true);
 
-        asserts.assertStrictEquals(root.link("a", defA).payload[1](), 1);
-        asserts.assertStrictEquals(root.link("b", defB).payload, 1);
+        assertStrictEquals(root.link("a", defA).payload[1](), 1);
+        assertStrictEquals(root.link("b", defB).payload, 1);
       },
     );
   });
@@ -145,15 +157,15 @@ Deno.test("new DependencyNode()", async (t) => {
 
         node.stack;
         root.unlink("key");
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           node.stack;
-        }, asserts.AssertionError);
+        }, AssertionError);
       },
     );
 
     await t.step("should be an instance of DisposableStack", () => {
       const root = new DependencyNode();
-      asserts.assertInstanceOf(root.stack, DisposableStack);
+      assertInstanceOf(root.stack, DisposableStack);
     });
 
     await t.step(
@@ -162,9 +174,9 @@ Deno.test("new DependencyNode()", async (t) => {
         const root = new DependencyNode();
         const node = root.link("key", __def(() => 0));
         const { stack } = node;
-        asserts.assertFalse(stack.disposed);
+        assertFalse(stack.disposed);
         root.unlink("key");
-        asserts.assert(stack.disposed);
+        assert(stack.disposed);
       },
     );
   });
@@ -172,8 +184,8 @@ Deno.test("new DependencyNode()", async (t) => {
   await t.step("node[@@toStringTag]", async (t) => {
     await t.step("should equal `'DependencyNode'`", () => {
       const root = new DependencyNode();
-      asserts.assertStrictEquals(root[Symbol.toStringTag], "DependencyNode");
-      asserts.assertStrictEquals(
+      assertStrictEquals(root[Symbol.toStringTag], "DependencyNode");
+      assertStrictEquals(
         DependencyNode.prototype[Symbol.toStringTag],
         "DependencyNode",
       );
@@ -189,18 +201,18 @@ Deno.test("new DependencyNode()", async (t) => {
 
         node.clear();
         root.clear();
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           node.clear();
-        }, asserts.AssertionError);
+        }, AssertionError);
       },
     );
 
     await t.step("should do nothing if no reference exists", () => {
       const root = new DependencyNode();
       root.clear();
-      asserts.assertStrictEquals(root.link("key", __def(() => 1)).payload, 1);
+      assertStrictEquals(root.link("key", __def(() => 1)).payload, 1);
       root.clear();
-      asserts.assertStrictEquals(root.link("key", __def(() => 2)).payload, 2);
+      assertStrictEquals(root.link("key", __def(() => 2)).payload, 2);
     });
 
     await t.step(
@@ -214,7 +226,7 @@ Deno.test("new DependencyNode()", async (t) => {
           a: true,
         };
         const [a, b, c] = ["a", "b", "c"].map((key) => {
-          const unload = mock.spy();
+          const unload = spy();
           const load = (node: AnyDependencyNode): unknown => {
             const value = {};
             node.stack.defer(unload);
@@ -231,21 +243,21 @@ Deno.test("new DependencyNode()", async (t) => {
         ];
         const nodeC = nodeB.link(c.key, c.def);
 
-        asserts.assertStrictEquals(nodeA, nodeB.link(a.key, a.def));
-        asserts.assert(typeof nodeA.payload === "object");
-        asserts.assert(typeof nodeB.payload === "object");
-        asserts.assert(typeof nodeC.payload === "object");
+        assertStrictEquals(nodeA, nodeB.link(a.key, a.def));
+        assert(typeof nodeA.payload === "object");
+        assert(typeof nodeB.payload === "object");
+        assert(typeof nodeC.payload === "object");
 
         nodeB.clear();
-        mock.assertSpyCalls(a.unload, 0);
-        mock.assertSpyCalls(b.unload, 1);
-        mock.assertSpyCalls(c.unload, 2);
+        assertSpyCalls(a.unload, 0);
+        assertSpyCalls(b.unload, 1);
+        assertSpyCalls(c.unload, 2);
 
         if (typeof gc === "function") {
           await __waitGC();
-          asserts.assertFalse(cleanedToken.has(a.key));
-          asserts.assertFalse(cleanedToken.has(b.key));
-          asserts.assert(cleanedToken.has(c.key));
+          assertFalse(cleanedToken.has(a.key));
+          assertFalse(cleanedToken.has(b.key));
+          assert(cleanedToken.has(c.key));
         }
       },
     );
@@ -255,21 +267,21 @@ Deno.test("new DependencyNode()", async (t) => {
         "so as to avoid node collection being interrupted by the error thrown by `stack.dispose()`",
       () => {
         const root = new DependencyNode();
-        const destructorA = mock.spy(() => {
-          asserts.assertThrows(() => {
+        const destructorA = spy(() => {
+          assertThrows(() => {
             nodeA.payload;
-          }, asserts.AssertionError);
-          asserts.assertThrows(() => {
+          }, AssertionError);
+          assertThrows(() => {
             nodeB.payload;
-          }, asserts.AssertionError);
+          }, AssertionError);
         });
-        const destructorB = mock.spy(() => {
-          asserts.assertThrows(() => {
+        const destructorB = spy(() => {
+          assertThrows(() => {
             nodeA.payload;
-          }, asserts.AssertionError);
-          asserts.assertThrows(() => {
+          }, AssertionError);
+          assertThrows(() => {
             nodeB.payload;
-          }, asserts.AssertionError);
+          }, AssertionError);
         });
         const nodeA = root.link(
           "a",
@@ -288,8 +300,8 @@ Deno.test("new DependencyNode()", async (t) => {
         nodeB.payload;
 
         root.clear();
-        mock.assertSpyCalls(destructorA, 1);
-        mock.assertSpyCalls(destructorB, 1);
+        assertSpyCalls(destructorA, 1);
+        assertSpyCalls(destructorB, 1);
       },
     );
 
@@ -297,10 +309,10 @@ Deno.test("new DependencyNode()", async (t) => {
       "should throw a SuppressedError if the error thrown by `stack.dispose()` is suppressed",
       () => {
         const root = new DependencyNode();
-        const destructorA = mock.spy(() => {
+        const destructorA = spy(() => {
           throw destructorA;
         });
-        const destructorB = mock.spy(() => {
+        const destructorB = spy(() => {
           throw destructorB;
         });
         const nodeA = root.link("a", __def((n) => n.stack.defer(destructorA)));
@@ -313,13 +325,13 @@ Deno.test("new DependencyNode()", async (t) => {
           root.clear();
           throw null;
         } catch (error) {
-          asserts.assertInstanceOf(error, SuppressedError);
-          asserts.assertStrictEquals(error.error, destructorA);
-          asserts.assertStrictEquals(error.suppressed, destructorB);
+          assertInstanceOf(error, SuppressedError);
+          assertStrictEquals(error.error, destructorA);
+          assertStrictEquals(error.suppressed, destructorB);
         }
 
-        mock.assertSpyCalls(destructorA, 1);
-        mock.assertSpyCalls(destructorB, 1);
+        assertSpyCalls(destructorA, 1);
+        assertSpyCalls(destructorB, 1);
       },
     );
   });
@@ -334,9 +346,9 @@ Deno.test("new DependencyNode()", async (t) => {
 
         node.link("key", __def(() => 0));
         root.unlink("key");
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           node.link("key", __def(() => 0));
-        }, asserts.AssertionError);
+        }, AssertionError);
       },
     );
 
@@ -345,7 +357,7 @@ Deno.test("new DependencyNode()", async (t) => {
       () => {
         // check step 2
         const root = new DependencyNode();
-        asserts.assertStrictEquals(
+        assertStrictEquals(
           root.link("k", __def(() => ({}))),
           root.link("k", __def(() => ({}))),
         );
@@ -358,7 +370,7 @@ Deno.test("new DependencyNode()", async (t) => {
         // check step 2
         const root = new DependencyNode();
         const { key, shadow } = root.shadow();
-        asserts.assertStrictEquals(root.link(key, __def(() => 0)), shadow);
+        assertStrictEquals(root.link(key, __def(() => 0)), shadow);
       },
     );
 
@@ -381,79 +393,49 @@ Deno.test("new DependencyNode()", async (t) => {
 
         // check step 3.2
         // 不提升则不可复用
-        asserts.assertNotStrictEquals(nodeA.link("a", defA), nodeA);
-        asserts.assertNotStrictEquals(nodeB.link("a", defA), nodeA);
-        asserts.assertNotStrictEquals(nodeB.link("b", defB), nodeB);
-        asserts.assertNotStrictEquals(nodeA.link("b", defB), nodeB);
+        assertNotStrictEquals(nodeA.link("a", defA), nodeA);
+        assertNotStrictEquals(nodeB.link("a", defA), nodeA);
+        assertNotStrictEquals(nodeB.link("b", defB), nodeB);
+        assertNotStrictEquals(nodeA.link("b", defB), nodeB);
 
         // check step 3.1
         // 复用提升到根节点的依赖
-        asserts.assertStrictEquals(
-          nodeA.link("c", defC),
-          nodeB.link("c", defC),
-        );
-        asserts.assertStrictEquals(
-          nodeA.link("c", defC),
-          parent.link("c", defC),
-        );
-        asserts.assertStrictEquals(
-          nodeA.link("c", defC),
-          root.link("c", defC),
-        );
-        asserts.assertStrictEquals(
+        assertStrictEquals(nodeA.link("c", defC), nodeB.link("c", defC));
+        assertStrictEquals(nodeA.link("c", defC), parent.link("c", defC));
+        assertStrictEquals(nodeA.link("c", defC), root.link("c", defC));
+        assertStrictEquals(
           nodeA.link("c", defC),
           root.shadow().shadow.link("c", defC),
         );
 
         // check step 3.3
         // 复用提升到指定节点的依赖
-        asserts.assertStrictEquals(
-          nodeA.link("d", defD),
-          nodeB.link("d", defD),
-        );
-        asserts.assertStrictEquals(
-          nodeA.link("d", defD),
-          parent.link("d", defD),
-        );
-        asserts.assertStrictEquals(
+        assertStrictEquals(nodeA.link("d", defD), nodeB.link("d", defD));
+        assertStrictEquals(nodeA.link("d", defD), parent.link("d", defD));
+        assertStrictEquals(
           nodeA.link("d", defD),
           parent.shadow().shadow.link("d", defD),
         );
-        asserts.assertNotStrictEquals(
-          nodeA.link("d", defD),
-          root.link("d", defD),
-        );
-        asserts.assertNotStrictEquals(
+        assertNotStrictEquals(nodeA.link("d", defD), root.link("d", defD));
+        assertNotStrictEquals(
           parent.shadow().shadow.link("e", defE),
           parent.link("e", defE),
         );
 
         // check step 3.2
         // 不进行提升的节点
-        asserts.assertNotStrictEquals(
-          nodeA.link("f", defF),
-          nodeB.link("f", defF),
-        );
-        asserts.assertNotStrictEquals(
-          nodeA.link("f", defF),
-          root.link("f", defF),
-        );
+        assertNotStrictEquals(nodeA.link("f", defF), nodeB.link("f", defF));
+        assertNotStrictEquals(nodeA.link("f", defF), root.link("f", defF));
 
         // check step 3.3
         // 无法提升到指定节点，则安装在当前节点不提升
-        asserts.assertNotStrictEquals(
-          nodeA.link("g", defG),
-          nodeB.link("g", defG),
-        );
-        asserts.assertNotStrictEquals(
-          nodeA.link("g", defG),
-          root.link("g", defG),
-        );
-        asserts.assertNotStrictEquals(
+        assertNotStrictEquals(nodeA.link("g", defG), nodeB.link("g", defG));
+        assertNotStrictEquals(nodeA.link("g", defG), root.link("g", defG));
+        assertNotStrictEquals(
           nodeA.link("g", defG),
           nodeA.shadow().shadow.link("g", defG),
         );
-        asserts.assertNotStrictEquals(
+        assertNotStrictEquals(
           nodeA.link("g", defG),
           root.shadow().shadow.link("g", defG),
         );
@@ -475,17 +457,13 @@ Deno.test("new DependencyNode()", async (t) => {
         const nodeB4 = nodeA.shadow().shadow.shadow().shadow.link("b", defB);
 
         const nodeBList = [nodeB1, nodeB2, nodeB3, nodeB4];
-        asserts.assertStrictEquals(new Set(nodeBList).size, nodeBList.length);
+        assertStrictEquals(new Set(nodeBList).size, nodeBList.length);
 
         const nodeCList = [root, nodeB1, nodeB2, nodeB3, nodeB4].map((node) => {
           return node.link("c", defC);
         });
-        asserts.assertStrictEquals(new Set(nodeCList).size, nodeCList.length);
-
-        asserts.assertNotStrictEquals(
-          root.link("c", defC),
-          nodeA.link("c", defC),
-        );
+        assertStrictEquals(new Set(nodeCList).size, nodeCList.length);
+        assertNotStrictEquals(root.link("c", defC), nodeA.link("c", defC));
       },
     );
   });
@@ -496,15 +474,15 @@ Deno.test("new DependencyNode()", async (t) => {
       const node = root.link("key", __def(() => 0));
       const { key: shadowKey, shadow } = node.shadow();
 
-      asserts.assertExists(shadowKey);
-      asserts.assertNotStrictEquals(shadow, node);
-      asserts.assert(shadow instanceof DependencyNode);
+      assertExists(shadowKey);
+      assertNotStrictEquals(shadow, node);
+      assert(shadow instanceof DependencyNode);
     });
 
     await t.step("should reuse the payload of its host node", () => {
       const root = new DependencyNode();
       const node = root.link("key", __def(() => ({})));
-      asserts.assertStrictEquals(
+      assertStrictEquals(
         node.shadow().shadow.shadow().shadow.payload,
         node.payload,
       );
@@ -520,9 +498,9 @@ Deno.test("new DependencyNode()", async (t) => {
 
         node.unlink("key");
         root.unlink("key");
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           node.unlink("key");
-        }, asserts.AssertionError);
+        }, AssertionError);
       },
     );
 
@@ -533,21 +511,21 @@ Deno.test("new DependencyNode()", async (t) => {
         const root = new DependencyNode();
         const def = __def(() => ++value);
         root.unlink("key");
-        asserts.assertStrictEquals(root.link("key", def).payload, 1);
+        assertStrictEquals(root.link("key", def).payload, 1);
         root.unlink("key");
-        asserts.assertStrictEquals(root.link("key", def).payload, 2);
+        assertStrictEquals(root.link("key", def).payload, 2);
       },
     );
 
     await t.step("should not revoke the reachable node", () => {
       const root = new DependencyNode();
-      const destructorB = mock.spy();
-      const destructorC = mock.spy();
-      const loadB = mock.spy((node: AnyDependencyNode) => {
+      const destructorB = spy();
+      const destructorC = spy();
+      const loadB = spy((node: AnyDependencyNode) => {
         node.stack.defer(destructorB);
         return {};
       });
-      const loadC = mock.spy((node: AnyDependencyNode) => {
+      const loadC = spy((node: AnyDependencyNode) => {
         node.stack.defer(destructorC);
         return {};
       });
@@ -558,20 +536,20 @@ Deno.test("new DependencyNode()", async (t) => {
       const nodeB = root.link("b", defB);
       const nodeC = nodeB.link("c", defC);
 
-      asserts.assertStrictEquals(nodeB, nodeA.link("b", defB));
-      asserts.assertStrictEquals(nodeC, nodeA.link("c", defC));
-      asserts.assertStrictEquals(nodeB.payload, loadB.calls[0].returned);
-      asserts.assertStrictEquals(nodeC.payload, loadC.calls[0].returned);
+      assertStrictEquals(nodeB, nodeA.link("b", defB));
+      assertStrictEquals(nodeC, nodeA.link("c", defC));
+      assertStrictEquals(nodeB.payload, loadB.calls[0].returned);
+      assertStrictEquals(nodeC.payload, loadC.calls[0].returned);
 
       nodeA.unlink("c");
-      mock.assertSpyCalls(destructorC, 0);
+      assertSpyCalls(destructorC, 0);
       nodeB.unlink("c");
-      mock.assertSpyCalls(destructorC, 1);
+      assertSpyCalls(destructorC, 1);
 
       root.unlink("b");
-      mock.assertSpyCalls(destructorB, 0);
+      assertSpyCalls(destructorB, 0);
       nodeA.unlink("b");
-      mock.assertSpyCalls(destructorB, 1);
+      assertSpyCalls(destructorB, 1);
     });
 
     await t.step("should revoke the unreachable nodes", async () => {
@@ -582,9 +560,9 @@ Deno.test("new DependencyNode()", async (t) => {
       const hoistMap: Record<string, AnyDependencyDefinition["hoist"]> = {
         a: true,
       };
-      const shadowUnload = mock.spy();
+      const shadowUnload = spy();
       const [a, b, c] = ["a", "b", "c"].map((key) => {
-        const unload = mock.spy();
+        const unload = spy();
         const load = (node: AnyDependencyNode): unknown => {
           const value = {};
           node.stack.defer(unload);
@@ -598,28 +576,28 @@ Deno.test("new DependencyNode()", async (t) => {
       const nodeB = nodeA.link(b.key, b.def);
       const nodeC = root.link(c.key, c.def);
 
-      asserts.assertStrictEquals(nodeA, nodeB.link(a.key, a.def));
-      asserts.assert(typeof nodeA.payload === "object");
-      asserts.assert(typeof nodeB.payload === "object");
-      asserts.assert(typeof nodeC.payload === "object");
+      assertStrictEquals(nodeA, nodeB.link(a.key, a.def));
+      assert(typeof nodeA.payload === "object");
+      assert(typeof nodeB.payload === "object");
+      assert(typeof nodeC.payload === "object");
 
       const { key: shadowKey, shadow } = root.shadow();
       shadow.stack.defer(shadowUnload);
-      mock.assertSpyCalls(shadowUnload, 0);
-      asserts.assertStrictEquals(nodeA, shadow.link(a.key, a.def));
+      assertSpyCalls(shadowUnload, 0);
+      assertStrictEquals(nodeA, shadow.link(a.key, a.def));
       root.unlink(shadowKey);
-      mock.assertSpyCalls(shadowUnload, 1);
+      assertSpyCalls(shadowUnload, 1);
 
       root.unlink(a.key, c.key);
-      mock.assertSpyCalls(a.unload, 1);
-      mock.assertSpyCalls(b.unload, 1);
-      mock.assertSpyCalls(c.unload, 1);
+      assertSpyCalls(a.unload, 1);
+      assertSpyCalls(b.unload, 1);
+      assertSpyCalls(c.unload, 1);
 
       if (typeof gc === "function") {
         await __waitGC();
-        asserts.assert(cleanedToken.has(a.key));
-        asserts.assert(cleanedToken.has(b.key));
-        asserts.assert(cleanedToken.has(c.key));
+        assert(cleanedToken.has(a.key));
+        assert(cleanedToken.has(b.key));
+        assert(cleanedToken.has(c.key));
       }
     });
 
@@ -628,21 +606,21 @@ Deno.test("new DependencyNode()", async (t) => {
         "so as to avoid node collection being interrupted by the error thrown by `stack.dispose()`",
       () => {
         const root = new DependencyNode();
-        const destructorA = mock.spy(() => {
-          asserts.assertThrows(() => {
+        const destructorA = spy(() => {
+          assertThrows(() => {
             nodeA.payload;
-          }, asserts.AssertionError);
-          asserts.assertThrows(() => {
+          }, AssertionError);
+          assertThrows(() => {
             nodeB.payload;
-          }, asserts.AssertionError);
+          }, AssertionError);
         });
-        const destructorB = mock.spy(() => {
-          asserts.assertThrows(() => {
+        const destructorB = spy(() => {
+          assertThrows(() => {
             nodeA.payload;
-          }, asserts.AssertionError);
-          asserts.assertThrows(() => {
+          }, AssertionError);
+          assertThrows(() => {
             nodeB.payload;
-          }, asserts.AssertionError);
+          }, AssertionError);
         });
         const nodeA = root.link("a", __def((n) => n.stack.defer(destructorA)));
         const nodeB = root.link("b", __def((n) => n.stack.defer(destructorB)));
@@ -651,8 +629,8 @@ Deno.test("new DependencyNode()", async (t) => {
         nodeB.payload;
 
         root.unlink("a", "b");
-        mock.assertSpyCalls(destructorA, 1);
-        mock.assertSpyCalls(destructorB, 1);
+        assertSpyCalls(destructorA, 1);
+        assertSpyCalls(destructorB, 1);
       },
     );
 
@@ -660,10 +638,10 @@ Deno.test("new DependencyNode()", async (t) => {
       "should throw a SuppressedError if the error thrown by `stack.dispose()` is suppressed",
       () => {
         const root = new DependencyNode();
-        const destructorA = mock.spy(() => {
+        const destructorA = spy(() => {
           throw destructorA;
         });
-        const destructorB = mock.spy(() => {
+        const destructorB = spy(() => {
           throw destructorB;
         });
         const nodeA = root.link("a", __def((n) => n.stack.defer(destructorA)));
@@ -676,13 +654,13 @@ Deno.test("new DependencyNode()", async (t) => {
           root.unlink("a", "b");
           throw null;
         } catch (error) {
-          asserts.assertInstanceOf(error, SuppressedError);
-          asserts.assertStrictEquals(error.error, destructorA);
-          asserts.assertStrictEquals(error.suppressed, destructorB);
+          assertInstanceOf(error, SuppressedError);
+          assertStrictEquals(error.error, destructorA);
+          assertStrictEquals(error.suppressed, destructorB);
         }
 
-        mock.assertSpyCalls(destructorA, 1);
-        mock.assertSpyCalls(destructorB, 1);
+        assertSpyCalls(destructorA, 1);
+        assertSpyCalls(destructorB, 1);
       },
     );
   });
@@ -696,9 +674,9 @@ Deno.test("new DependencyNode()", async (t) => {
 
         node.weaken("key", {});
         root.unlink("key");
-        asserts.assertThrows(() => {
+        assertThrows(() => {
           node.weaken("key", {});
-        }, asserts.AssertionError);
+        }, AssertionError);
       },
     );
 
@@ -707,7 +685,7 @@ Deno.test("new DependencyNode()", async (t) => {
       () => {
         const root = new DependencyNode();
         root.weaken("key", {});
-        asserts.assertStrictEquals(root.link("key", __def(() => 1)).payload, 1);
+        assertStrictEquals(root.link("key", __def(() => 1)).payload, 1);
       },
     );
 
@@ -718,42 +696,42 @@ Deno.test("new DependencyNode()", async (t) => {
           let handle: DependencyWeakRefHandle;
 
           const root = new DependencyNode();
-          const destructor = mock.spy();
-          const load = mock.spy((instance: AnyDependencyNode) => {
+          const destructor = spy();
+          const load = spy((instance: AnyDependencyNode) => {
             instance.stack.defer(destructor);
             return {};
           });
           const def = __def(load);
           const node = root.link("key", def);
-          const unlink = mock.spy(root, "unlink");
+          const unlink = spy(root, "unlink");
 
-          asserts.assertStrictEquals(node.payload, load.calls[0].returned);
-          mock.assertSpyCalls(load, 1);
-          mock.assertSpyCalls(destructor, 0);
-          mock.assertSpyCalls(unlink, 0);
+          assertStrictEquals(node.payload, load.calls[0].returned);
+          assertSpyCalls(load, 1);
+          assertSpyCalls(destructor, 0);
+          assertSpyCalls(unlink, 0);
 
           handle = {};
           root.weaken("key", handle);
           handle = {};
           root.weaken("key", handle);
           await __waitGC();
-          mock.assertSpyCalls(destructor, 0);
-          mock.assertSpyCalls(unlink, 0);
-          asserts.assertStrictEquals(root.link("key", def), node);
+          assertSpyCalls(destructor, 0);
+          assertSpyCalls(unlink, 0);
+          assertStrictEquals(root.link("key", def), node);
 
           root.weaken("key", null);
           handle = {};
           await __waitGC();
-          mock.assertSpyCalls(destructor, 0);
-          mock.assertSpyCalls(unlink, 0);
-          asserts.assertStrictEquals(root.link("key", def), node);
+          assertSpyCalls(destructor, 0);
+          assertSpyCalls(unlink, 0);
+          assertStrictEquals(root.link("key", def), node);
 
           root.weaken("key", handle);
           handle = {};
           await __waitGC();
-          mock.assertSpyCalls(destructor, 1);
-          mock.assertSpyCalls(unlink, 1);
-          asserts.assertNotStrictEquals(root.link("key", def), node);
+          assertSpyCalls(destructor, 1);
+          assertSpyCalls(unlink, 1);
+          assertNotStrictEquals(root.link("key", def), node);
         },
       );
 
@@ -763,37 +741,37 @@ Deno.test("new DependencyNode()", async (t) => {
           let handle: DependencyWeakRefHandle;
 
           const root = new DependencyNode();
-          const defA = __def(mock.spy(() => ({})));
-          const defB = __def(mock.spy(() => ({})));
+          const defA = __def(spy(() => ({})));
+          const defB = __def(spy(() => ({})));
           const nodeA = root.link("a", defA);
           const nodeB = nodeA.link("b", defB);
-          const unlink0 = mock.spy(root, "unlink");
-          const unlink1 = mock.spy(nodeA, "unlink");
+          const unlink0 = spy(root, "unlink");
+          const unlink1 = spy(nodeA, "unlink");
 
-          asserts.assertStrictEquals(
+          assertStrictEquals(
             nodeA.payload,
             defA.load.calls[0].returned,
           );
-          asserts.assertStrictEquals(
+          assertStrictEquals(
             nodeB.payload,
             defB.load.calls[0].returned,
           );
-          mock.assertSpyCalls(defA.load, 1);
-          mock.assertSpyCalls(defB.load, 1);
-          mock.assertSpyCalls(unlink0, 0);
-          mock.assertSpyCalls(unlink1, 0);
+          assertSpyCalls(defA.load, 1);
+          assertSpyCalls(defB.load, 1);
+          assertSpyCalls(unlink0, 0);
+          assertSpyCalls(unlink1, 0);
 
           handle = {};
           root.weaken(defA, handle);
           nodeA.weaken(defB, handle);
           root.unlink(defA);
-          mock.assertSpyCalls(unlink0, 1);
-          mock.assertSpyCalls(unlink1, 0);
+          assertSpyCalls(unlink0, 1);
+          assertSpyCalls(unlink1, 0);
 
           handle = {};
           await __waitGC();
-          mock.assertSpyCalls(unlink0, 1);
-          mock.assertSpyCalls(unlink1, 0);
+          assertSpyCalls(unlink0, 1);
+          assertSpyCalls(unlink1, 0);
         },
       );
     }
@@ -803,17 +781,17 @@ Deno.test("new DependencyNode()", async (t) => {
     await t.step("should return a human-readable string", () => {
       const root = new DependencyNode();
       const node = root.link("key", __def(() => ({})));
-      const customInspect = mock.spy(
+      const customInspect = spy(
         node as unknown as Record<symbol, unknown>,
         Symbol.for("Deno.customInspect"),
       );
 
-      asserts.assert(typeof Deno.inspect(node) === "string");
-      mock.assertSpyCalls(customInspect, 1);
+      assert(typeof Deno.inspect(node) === "string");
+      assertSpyCalls(customInspect, 1);
 
       root.unlink("key");
-      asserts.assert(typeof Deno.inspect(node) === "string");
-      mock.assertSpyCalls(customInspect, 2);
+      assert(typeof Deno.inspect(node) === "string");
+      assertSpyCalls(customInspect, 2);
     });
   });
 });
@@ -826,7 +804,7 @@ function __def<Load extends AnyDependencyDefinition["load"]>(
 }
 
 function __waitGC(): Promise<void> {
-  asserts.assert(typeof gc === "function");
+  assert(typeof gc === "function");
   gc();
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
