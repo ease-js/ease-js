@@ -71,6 +71,10 @@ export type ServiceMeta<
   ImportMap extends ServiceImportTokenMap,
 > = DepMeta<ServiceHost, ImportMap>;
 
+export type TokenSourceOfServiceImport<Import extends ServiceImport> = {
+  readonly [Key in keyof Import]: ServiceImportTokenSource<any, Import[Key]>;
+};
+
 export class ServiceChain<const ImportMap extends ServiceImportTokenMap>
   extends DepChain<ServiceAgent, ImportMap> {
   constructor(importMap: ImportMap) {

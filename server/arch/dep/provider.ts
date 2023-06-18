@@ -79,7 +79,6 @@ export interface DepMeta<
 > {
   readonly host: new (...params: any) => Host;
   readonly import: ImportMap;
-  readonly kind: "callable" | "newable";
 }
 
 export interface NewableDepDef<
@@ -98,21 +97,37 @@ export type NewableDepImpl<
 > = new (imports: Import, agent: Agent) => Export;
 
 export type ResolvedDepImport<ImportMap extends DepImportTokenMap> = {
-  readonly [Alias in keyof ImportMap]: ImportMap[Alias] extends
+  readonly [Key in keyof ImportMap]: ImportMap[Key] extends
     DepImportTokenSource<infer _1, infer _2, infer Export> ? Export : never;
+};
+
+export type TokenSourceOfDepImport<Import extends DepImport> = {
+  readonly [Key in keyof Import]: DepImportTokenSource<any, any, Import[Key]>;
 };
 
 export abstract class DepChain<
   Agent extends DepAgent<any>,
   ImportMap extends DepImportTokenMap,
 > {
-  readonly #metaInit: Omit<DepMeta<DepHostOfAgent<Agent>, ImportMap>, "kind">;
+  // static resolveToken<
+  //   Agent extends DepAgent<any>,
+  //   ImportMap extends DepImportTokenMap,
+  //   Export,
+  // >(
+  //   def: DepImportToken<Agent, ImportMap, Export>,
+  // ): DepDef<Agent, ImportMap, Export> {
+  //   if (typeof def === "object") return def;
+  //   Object.hasOwn(def, "dep_def");
+  //   return (def as any).dep_def;
+  // }
+
+  readonly #meta: DepMeta<DepHostOfAgent<Agent>, ImportMap>;
 
   constructor(
     host: new (...params: any) => DepHostOfAgent<Agent>,
     importMap: ImportMap,
   ) {
-    this.#metaInit = { host, import: importMap };
+    this.#meta = { host, import: importMap };
   }
 
   decorate<
@@ -127,14 +142,17 @@ export abstract class DepChain<
       | ClassDecoratorContext<NewableDepImpl<Agent, any, any>>
       | FunctionDecoratorContext<CallableDepImpl<Agent, any, any>>,
   ): void {
-    const meta = Object.freeze<DepMeta<DepHostOfAgent<Agent>, ImportMap>>({
-      ...this.#metaInit,
+    const def = Object.freeze({
+      ...this.#meta,
       kind: context.kind === "class" ? "newable" : "callable",
+      impl,
     });
-    Reflect.defineProperty(impl, "dep_meta", { value: meta });
+    Reflect.defineProperty(impl, "dep_def", { value: def });
   }
 
   // decorator(): DepChainDecorator<this> {
   //   return new Proxy(this.decorate, {}) as DepChainDecorator<this>;
   // }
 }
+
+// export class CallableDepDef {}

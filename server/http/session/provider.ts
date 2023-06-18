@@ -73,6 +73,10 @@ export type SessionMeta<
   ImportMap extends SessionImportTokenMap,
 > = DepMeta<SessionHost, ImportMap>;
 
+export type TokenSourceOfSessionImport<Import extends SessionImport> = {
+  readonly [Key in keyof Import]: SessionImportTokenSource<any, Import[Key]>;
+};
+
 export class SessionChain<const ImportMap extends SessionImportTokenMap>
   extends DepChain<SessionAgent, ImportMap> {
   constructor(importMap: ImportMap) {
