@@ -37,6 +37,13 @@ export type DepImportToken<
   | DepDef<Agent, ImportMap, Export>
   | NewableDepImpl<Agent, ImportMap, Export>;
 
+export interface DepImportTokenLoadableSource<
+  Token extends DepImportToken<any, any, any>,
+> {
+  readonly kind: "loadable";
+  readonly impl: () => Awaitable<Token>;
+}
+
 export type DepImportTokenMap = {
   readonly [Alias: string | symbol]: DepImportTokenSource<any, any, any>;
 };
@@ -47,7 +54,7 @@ export type DepImportTokenSource<
   Export,
 > =
   | DepImportToken<Agent, ImportMap, Export>
-  | (() => Awaitable<DepImportToken<Agent, ImportMap, Export>>);
+  | DepImportTokenLoadableSource<DepImportToken<Agent, ImportMap, Export>>;
 
 export interface DepMeta<
   Agent extends DepAgent<any>,

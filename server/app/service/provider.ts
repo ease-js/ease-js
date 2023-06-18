@@ -1,9 +1,9 @@
 // deno-lint-ignore-file no-explicit-any
-import { type Awaitable } from "../../../tools/promise/types.ts";
 import {
   type CallableDepDef,
   type CallableDepImpl,
   type DepImport,
+  type DepImportTokenLoadableSource,
   type DepMeta,
   type NewableDepDef,
   type NewableDepImpl,
@@ -55,7 +55,7 @@ export type ServiceImportTokenSource<
   Export,
 > =
   | ServiceImportToken<ImportMap, Export>
-  | (() => Awaitable<ServiceImportToken<ImportMap, Export>>);
+  | DepImportTokenLoadableSource<ServiceImportToken<ImportMap, Export>>;
 
 export type ServiceMeta<
   ImportMap extends ServiceImportTokenMap,

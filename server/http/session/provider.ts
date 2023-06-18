@@ -1,9 +1,9 @@
 // deno-lint-ignore-file no-explicit-any
-import { type Awaitable } from "../../../tools/promise/types.ts";
 import {
   type CallableDepDef,
   type CallableDepImpl,
   type DepImport,
+  type DepImportTokenLoadableSource,
   type DepMeta,
   type NewableDepDef,
   type NewableDepImpl,
@@ -44,6 +44,7 @@ export type SessionImportToken<
   ImportMap extends SessionImportTokenMap,
   Export,
 > =
+  | ServiceImportToken<ImportMap, Export>
   | SessionDef<ImportMap, Export>
   | NewableSessionImpl<ImportMap, Export>;
 
@@ -55,12 +56,8 @@ export type SessionImportTokenSource<
   ImportMap extends SessionImportTokenMap,
   Export,
 > =
-  | ServiceImportToken<ImportMap, Export>
   | SessionImportToken<ImportMap, Export>
-  | (() => Awaitable<
-    | ServiceImportToken<ImportMap, Export>
-    | SessionImportToken<ImportMap, Export>
-  >);
+  | DepImportTokenLoadableSource<SessionImportToken<ImportMap, Export>>;
 
 export type SessionMeta<
   ImportMap extends SessionImportTokenMap,
