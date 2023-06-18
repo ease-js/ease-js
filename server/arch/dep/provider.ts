@@ -25,6 +25,14 @@ export type DepDef<
   | CallableDepDef<Agent, ImportMap, Export>
   | NewableDepDef<Agent, ImportMap, Export>;
 
+export type DepImpl<
+  Agent extends DepAgent<any>,
+  Import extends DepImport,
+  Export,
+> =
+  | CallableDepImpl<Agent, Import, Export>
+  | NewableDepImpl<Agent, Import, Export>;
+
 export type DepImport = {
   readonly [Alias: string | symbol]: any;
 };
@@ -35,7 +43,7 @@ export type DepImportToken<
   Export,
 > =
   | DepDef<Agent, ImportMap, Export>
-  | NewableDepImpl<Agent, ImportMap, Export>;
+  | DepImpl<Agent, ResolvedDepImport<ImportMap>, Export>;
 
 export interface DepImportTokenLoadableSource<
   Token extends DepImportToken<any, any, any>,

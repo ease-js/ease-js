@@ -7,6 +7,7 @@ import {
   type DepMeta,
   type NewableDepDef,
   type NewableDepImpl,
+  type ResolvedDepImport,
 } from "../../arch/dep.ts";
 import { type ServiceAgent } from "./agent.ts";
 
@@ -37,6 +38,13 @@ export type ServiceDef<
   | CallableServiceDef<ImportMap, Export>
   | NewableServiceDef<ImportMap, Export>;
 
+export type ServiceImpl<
+  Import extends ServiceImport,
+  Export,
+> =
+  | CallableServiceImpl<Import, Export>
+  | NewableServiceImpl<Import, Export>;
+
 export type ServiceImport = DepImport;
 
 export type ServiceImportToken<
@@ -44,7 +52,7 @@ export type ServiceImportToken<
   Export,
 > =
   | ServiceDef<ImportMap, Export>
-  | NewableServiceImpl<ImportMap, Export>;
+  | ServiceImpl<ResolvedDepImport<ImportMap>, Export>;
 
 export type ServiceImportTokenMap = {
   readonly [Alias: string | symbol]: ServiceImportTokenSource<any, any>;

@@ -7,6 +7,7 @@ import {
   type DepMeta,
   type NewableDepDef,
   type NewableDepImpl,
+  type ResolvedDepImport,
 } from "../../arch/dep.ts";
 import { type ServiceImportToken } from "../../app/service/provider.ts";
 import { type SessionAgent } from "./agent.ts";
@@ -38,6 +39,13 @@ export type SessionDef<
   | CallableSessionDef<ImportMap, Export>
   | NewableSessionDef<ImportMap, Export>;
 
+export type SessionImpl<
+  Import extends SessionImport,
+  Export,
+> =
+  | CallableSessionImpl<Import, Export>
+  | NewableSessionImpl<Import, Export>;
+
 export type SessionImport = DepImport;
 
 export type SessionImportToken<
@@ -46,7 +54,7 @@ export type SessionImportToken<
 > =
   | ServiceImportToken<ImportMap, Export>
   | SessionDef<ImportMap, Export>
-  | NewableSessionImpl<ImportMap, Export>;
+  | SessionImpl<ResolvedDepImport<ImportMap>, Export>;
 
 export type SessionImportTokenMap = {
   readonly [Alias: string | symbol]: SessionImportTokenSource<any, any>;
