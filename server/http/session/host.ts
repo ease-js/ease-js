@@ -1,17 +1,10 @@
+import { type ServiceHost } from "../../app/service/host.ts";
 import { DepHost } from "../../arch/dependency.ts";
 
-// export interface SessionHostInit {}
+export interface SessionHostInit {
+  readonly serviceHost: ServiceHost;
+}
 
-export class SessionHost extends DepHost {
-  constructor() {
-    super({});
-  }
-
-  get req() {
-    return null;
-  }
-
-  get res() {
-    return null;
-  }
+export declare class SessionHost extends DepHost {
+  constructor(init: SessionHostInit);
 }

@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-empty-interface, no-explicit-any
 import { type Awaitable } from "../../../tools/promise/types.ts";
 import {
   type CallableDepDef,
@@ -7,31 +8,27 @@ import {
   type NewableDepDef,
   type NewableDepImpl,
 } from "../../arch/dependency.ts";
-import { type ServiceHost } from "./host.ts";
+import { type ServiceAgent } from "./agent.ts";
 
 export interface CallableServiceDef<
   ImportMap extends ServiceImportTokenMap,
   Export,
-> extends CallableDepDef<ServiceHost, ImportMap, Export> {
-  readonly as: "service";
-}
+> extends CallableDepDef<ServiceAgent, ImportMap, Export> {}
 
 export type CallableServiceImpl<
   Import extends ServiceImport,
   Export,
-> = CallableDepImpl<ServiceHost, Import, Export>;
+> = CallableDepImpl<ServiceAgent, Import, Export>;
 
 export interface NewableServiceDef<
   ImportMap extends ServiceImportTokenMap,
   Export,
-> extends NewableDepDef<ServiceHost, ImportMap, Export> {
-  readonly as: "service";
-}
+> extends NewableDepDef<ServiceAgent, ImportMap, Export> {}
 
 export type NewableServiceImpl<
   Import extends ServiceImport,
   Export,
-> = NewableDepImpl<ServiceHost, Import, Export>;
+> = NewableDepImpl<ServiceAgent, Import, Export>;
 
 export type ServiceDef<
   ImportMap extends ServiceImportTokenMap,
@@ -47,17 +44,19 @@ export type ServiceImportToken<
   Export,
 > =
   | ServiceDef<ImportMap, Export>
-  | NewableServiceImpl<ImportMap, Export>
-  | (() => Awaitable<
-    | ServiceDef<ImportMap, Export>
-    | NewableServiceImpl<ImportMap, Export>
-  >);
+  | NewableServiceImpl<ImportMap, Export>;
 
 export type ServiceImportTokenMap = {
-  // deno-lint-ignore no-explicit-any
-  readonly [Alias: string | symbol]: ServiceImportToken<any, any>;
+  readonly [Alias: string | symbol]: ServiceImportTokenSource<any, any>;
 };
+
+export type ServiceImportTokenSource<
+  ImportMap extends ServiceImportTokenMap,
+  Export,
+> =
+  | ServiceImportToken<ImportMap, Export>
+  | (() => Awaitable<ServiceImportToken<ImportMap, Export>>);
 
 export type ServiceMeta<
   ImportMap extends ServiceImportTokenMap,
-> = DepMeta<ImportMap>;
+> = DepMeta<ServiceAgent, ImportMap>;
