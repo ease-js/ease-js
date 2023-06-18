@@ -2,6 +2,7 @@
 import {
   type CallableDepDef,
   type CallableDepImpl,
+  DepChain,
   type DepImport,
   type DepImportTokenLoadableSource,
   type DepMeta,
@@ -11,6 +12,7 @@ import {
 } from "../../arch/dep.ts";
 import { type ServiceImportToken } from "../../app/service/provider.ts";
 import { type SessionAgent } from "./agent.ts";
+import { SessionHost } from "./host.ts";
 
 export type CallableSessionDef<
   ImportMap extends SessionImportTokenMap,
@@ -69,4 +71,11 @@ export type SessionImportTokenSource<
 
 export type SessionMeta<
   ImportMap extends SessionImportTokenMap,
-> = DepMeta<SessionAgent, ImportMap>;
+> = DepMeta<SessionHost, ImportMap>;
+
+export class SessionChain<const ImportMap extends SessionImportTokenMap>
+  extends DepChain<SessionAgent, ImportMap> {
+  constructor(importMap: ImportMap) {
+    super(SessionHost, importMap);
+  }
+}

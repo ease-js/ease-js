@@ -2,6 +2,7 @@
 import {
   type CallableDepDef,
   type CallableDepImpl,
+  DepChain,
   type DepImport,
   type DepImportTokenLoadableSource,
   type DepMeta,
@@ -10,6 +11,7 @@ import {
   type ResolvedDepImport,
 } from "../../arch/dep.ts";
 import { type ServiceAgent } from "./agent.ts";
+import { ServiceHost } from "./host.ts";
 
 export type CallableServiceDef<
   ImportMap extends ServiceImportTokenMap,
@@ -67,4 +69,11 @@ export type ServiceImportTokenSource<
 
 export type ServiceMeta<
   ImportMap extends ServiceImportTokenMap,
-> = DepMeta<ServiceAgent, ImportMap>;
+> = DepMeta<ServiceHost, ImportMap>;
+
+export class ServiceChain<const ImportMap extends ServiceImportTokenMap>
+  extends DepChain<ServiceAgent, ImportMap> {
+  constructor(importMap: ImportMap) {
+    super(ServiceHost, importMap);
+  }
+}
