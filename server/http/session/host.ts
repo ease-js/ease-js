@@ -1,5 +1,5 @@
 import { type ServiceHost } from "../../app/service/host.ts";
-import { DepHost } from "../../arch/dependency.ts";
+import { DepHost } from "../../arch/dep.ts";
 
 export interface SessionHostInit {
   readonly serviceHost: ServiceHost;

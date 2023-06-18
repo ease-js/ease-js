@@ -7,7 +7,7 @@ import {
   type DepMeta,
   type NewableDepDef,
   type NewableDepImpl,
-} from "../../arch/dependency.ts";
+} from "../../arch/dep.ts";
 import { type ServiceImportToken } from "../../app/service/provider.ts";
 import { type SessionAgent } from "./agent.ts";
 

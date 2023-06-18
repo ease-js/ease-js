@@ -1,4 +1,4 @@
-import { DepHost } from "../../arch/dependency.ts";
+import { DepHost } from "../../arch/dep.ts";
 
 // export interface ServiceHostInit {}
 

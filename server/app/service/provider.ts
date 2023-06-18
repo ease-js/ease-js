@@ -7,7 +7,7 @@ import {
   type DepMeta,
   type NewableDepDef,
   type NewableDepImpl,
-} from "../../arch/dependency.ts";
+} from "../../arch/dep.ts";
 import { type ServiceAgent } from "./agent.ts";
 
 export interface CallableServiceDef<

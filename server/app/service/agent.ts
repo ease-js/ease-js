@@ -1,4 +1,4 @@
-import { DepAgent, type DepAgentInit } from "../../arch/dependency.ts";
+import { DepAgent, type DepAgentInit } from "../../arch/dep.ts";
 import { type ServiceHost } from "./host.ts";
 
 // deno-lint-ignore no-empty-interface
