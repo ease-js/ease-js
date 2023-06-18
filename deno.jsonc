@@ -4,6 +4,6 @@
     "test": "deno test --v8-flags=--expose-gc",
     "test-coverage": "deno task clean && deno test --coverage=.coverage.local --v8-flags=--expose-gc && deno coverage .coverage.local"
     // Globs are currently not supported, but will be soon.
-    // "update-lock": "deno cache -r --lock-write */deps.ts */dev-deps.ts"
+    // "update-lock": "deno cache -r --lock-write tools/**/*.ts"
   }
 }
