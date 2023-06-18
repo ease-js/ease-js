@@ -1,8 +1,7 @@
 import { DepAgent, type DepAgentInit } from "../../arch/dep.ts";
 import { type SessionHost } from "./host.ts";
 
-// deno-lint-ignore no-empty-interface
-export interface SessionAgentInit extends DepAgentInit<SessionHost> {}
+export type SessionAgentInit = DepAgentInit<SessionHost>;
 
 export declare class SessionAgent extends DepAgent<SessionHost> {
   constructor(init: SessionAgentInit);

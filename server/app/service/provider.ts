@@ -1,4 +1,4 @@
-// deno-lint-ignore-file no-empty-interface, no-explicit-any
+// deno-lint-ignore-file no-explicit-any
 import { type Awaitable } from "../../../tools/promise/types.ts";
 import {
   type CallableDepDef,
@@ -10,20 +10,20 @@ import {
 } from "../../arch/dep.ts";
 import { type ServiceAgent } from "./agent.ts";
 
-export interface CallableServiceDef<
+export type CallableServiceDef<
   ImportMap extends ServiceImportTokenMap,
   Export,
-> extends CallableDepDef<ServiceAgent, ImportMap, Export> {}
+> = CallableDepDef<ServiceAgent, ImportMap, Export>;
 
 export type CallableServiceImpl<
   Import extends ServiceImport,
   Export,
 > = CallableDepImpl<ServiceAgent, Import, Export>;
 
-export interface NewableServiceDef<
+export type NewableServiceDef<
   ImportMap extends ServiceImportTokenMap,
   Export,
-> extends NewableDepDef<ServiceAgent, ImportMap, Export> {}
+> = NewableDepDef<ServiceAgent, ImportMap, Export>;
 
 export type NewableServiceImpl<
   Import extends ServiceImport,
